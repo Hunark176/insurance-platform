@@ -1,4 +1,4 @@
-import ClaimForm from './components/ClaimForm/ClaimForm';
+import ClaimForm from '@/features/claims/ClaimForm';
 
 function App() {
     return (

@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: insurance-platform
+
+
+  # H2 Console (Browser: http://localhost:8080/h2-console)
+  datasource:
+    url: jdbc:h2:mem:claimdb
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  profiles:
+    active: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  flyway:
+    enabled: false
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+
+server:
+  port: 8080
