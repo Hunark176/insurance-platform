@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: insurance
+      POSTGRES_USER: insurance
+      POSTGRES_PASSWORD: insurance
+    ports:
+      - "5432:5432"
+    volumes:
+      - insurance-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  insurance-postgres-data:
