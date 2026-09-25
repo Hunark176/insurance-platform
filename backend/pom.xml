@@ -154,6 +154,15 @@
 	<build>
 		<plugins>
 
+			<!-- Maven Compiler Plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<release>21</release>
+				</configuration>
+			</plugin>
+
 			<!-- Spring-Boot-Maven-Plugin -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>

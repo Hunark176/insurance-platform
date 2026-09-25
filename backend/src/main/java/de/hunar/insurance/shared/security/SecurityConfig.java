@@ -22,7 +22,9 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**",
                                 "/swagger-ui.html", "/h2-console/**").permitAll()
                         .anyRequest().authenticated())
-                .httpBasic(basic -> {});
+                .httpBasic(basic -> {})
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.sameOrigin()));
         return http.build();
     }
 
