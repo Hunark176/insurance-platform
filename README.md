@@ -25,7 +25,13 @@ npm run dev
 
 Die Anwendung ist anschließend unter `http://localhost:5173` erreichbar. Das
 Frontend leitet `/api` an das Backend unter `http://localhost:8080` weiter.
-Die lokale Entwicklungsdatenbank ist eine eingebettete H2-Datenbank.
+Die lokale Entwicklungsdatenbank ist eine eingebettete H2-Datenbank. Das
+Standardprofil `dev` ist für Tests und schnelle Entwicklung gedacht; das
+Profil `local` verwendet PostgreSQL und Flyway.
+
+Die Entwicklungs-API verwendet HTTP Basic. Für lokale Tests stehen die
+Benutzer `customer/customer`, `clerk/clerk` und `admin/admin` zur Verfügung;
+fachliche Schreiboperationen benötigen mindestens die Rolle `CLERK`.
 
 Für PostgreSQL kann optional gestartet werden:
 
@@ -43,6 +49,11 @@ npm run test:backend
 
 Die API-Dokumentation ist unter
 `http://localhost:8080/swagger-ui.html` verfügbar.
+
+Die Modularchitektur ist in [docs/architecture.md](docs/architecture.md)
+dokumentiert. `ModularityTest` prüft die Grenzen und verhindert Zyklen.
+Ein genehmigter Claim veröffentlicht `ClaimApprovedEvent`; Billing erzeugt
+daraus genau eine Auszahlung.
 
 ## Projektstruktur
 

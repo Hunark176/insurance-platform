@@ -3,7 +3,10 @@ package de.hunar.insurance.claim.service;
 import de.hunar.insurance.claim.entity.Claim;
 import de.hunar.insurance.claim.entity.ClaimStatus;
 import de.hunar.insurance.claim.repository.ClaimRepository;
+import de.hunar.insurance.claim.events.ClaimApprovedEvent;
+import de.hunar.insurance.shared.domain.Money;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +18,7 @@ import java.util.List;
 public class ClaimService {
 
     private final ClaimRepository claimRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<Claim> getAllClaims() {
@@ -35,7 +39,15 @@ public class ClaimService {
         Claim claim = getClaimById(id);
         validateStatusTransition(claim.getStatus(), newStatus);
         claim.setStatus(newStatus);
-        return claimRepository.save(claim);
+        Claim saved = claimRepository.save(claim);
+        if (newStatus == ClaimStatus.APPROVED) {
+            eventPublisher.publishEvent(new ClaimApprovedEvent(
+                    saved.getId(),
+                    saved.getPolicyId(),
+                    Money.eur(saved.getAmount())
+            ));
+        }
+        return saved;
     }
 
     public void deleteClaim(Long id) {

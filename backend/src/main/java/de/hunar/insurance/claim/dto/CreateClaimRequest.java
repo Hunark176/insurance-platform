@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 @Schema(description = "Daten zum Anlegen eines neuen Schadenfalls")
 public record CreateClaimRequest(
 
+        Long policyId,
+
         @NotBlank(message = "Kundennummer darf nicht leer sein")
         @Size(max = 50, message = "Kundennummer darf maximal 50 Zeichen enthalten")
         @Schema(

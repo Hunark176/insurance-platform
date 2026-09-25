@@ -2,8 +2,10 @@ package de.hunar.insurance.claim.controller;
 
 
 // ← HIER die Swagger-Imports einfügen
-import de.hunar.insurance.claim.entity.Claim;
 import de.hunar.insurance.claim.entity.ClaimStatus;
+import de.hunar.insurance.claim.dto.ClaimResponse;
+import de.hunar.insurance.claim.dto.CreateClaimRequest;
+import de.hunar.insurance.claim.mapper.ClaimMapper;
 import de.hunar.insurance.claim.service.ClaimService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,12 +29,14 @@ import java.util.List;
 public class ClaimController {
 
     private final ClaimService claimService;
+    private final ClaimMapper claimMapper;
 
     @GetMapping
     @Operation(summary = "Alle Claims laden")
     @ApiResponse(responseCode = "200", description = "Liste aller Claims erfolgreich geladen")
-    public List<Claim> getAllClaims() {
-        return claimService.getAllClaims();
+    @PreAuthorize("isAuthenticated()")
+    public List<ClaimResponse> getAllClaims() {
+        return claimService.getAllClaims().stream().map(claimMapper::toResponse).toList();
     }
 
     @GetMapping("/{id}")
@@ -40,22 +45,24 @@ public class ClaimController {
             @ApiResponse(responseCode = "200", description = "Claim gefunden"),
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
-    public Claim getClaim(
+    @PreAuthorize("isAuthenticated()")
+    public ClaimResponse getClaim(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id
     ) {
-        return claimService.getClaimById(id);
+        return claimMapper.toResponse(claimService.getClaimById(id));
     }
 
     @PostMapping
     @Operation(summary = "Neuen Claim erstellen")
     @ApiResponse(responseCode = "201", description = "Claim erfolgreich erstellt")
     @ResponseStatus(HttpStatus.CREATED)
-    public Claim createClaim(
+    @PreAuthorize("hasAnyRole('CUSTOMER','CLERK','ADMIN')")
+    public ClaimResponse createClaim(
             @Parameter(description = "Claim-Daten zum Erstellen")
-            @Valid @RequestBody Claim claim
+            @Valid @RequestBody CreateClaimRequest request
     ) {
-        return claimService.createClaim(claim);
+        return claimMapper.toResponse(claimService.createClaim(claimMapper.toEntity(request)));
     }
 
     @PatchMapping("/{id}/status")
@@ -64,13 +71,14 @@ public class ClaimController {
             @ApiResponse(responseCode = "200", description = "Status erfolgreich aktualisiert"),
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
-    public Claim updateStatus(
+    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
+    public ClaimResponse updateStatus(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id,
             @Parameter(description = "Neuer Status", example = "IN_PROGRESS")
             @RequestParam ClaimStatus newStatus
     ) {
-        return claimService.updateClaim(id, newStatus);
+        return claimMapper.toResponse(claimService.updateClaim(id, newStatus));
     }
 
     @DeleteMapping("/{id}")
@@ -80,6 +88,7 @@ public class ClaimController {
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public void deleteClaim(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id
