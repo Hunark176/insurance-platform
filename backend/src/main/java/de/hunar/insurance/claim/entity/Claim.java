@@ -40,6 +40,9 @@ public class Claim {
     )
     private Long id;
 
+    @Column(name = "policy_id")
+    private Long policyId;
+
     @NotBlank
     @Size(max = 50)
     @Column(

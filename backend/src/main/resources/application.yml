@@ -1,22 +1,18 @@
 spring:
   application:
     name: insurance-platform
-
-
-  # H2 Console (Browser: http://localhost:8080/h2-console)
+  profiles:
+    default: dev
   datasource:
     url: jdbc:h2:mem:claimdb
     username: sa
     password:
     driver-class-name: org.h2.Driver
 
-  profiles:
-    active: dev
-
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    open-in-view: false
 
   h2:
     console:
@@ -25,6 +21,36 @@ spring:
 
   flyway:
     enabled: false
+
+  modulith:
+    events:
+      completion-mode: update
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/insurance
+    username: insurance
+    password: insurance
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
 
 springdoc:
   api-docs:

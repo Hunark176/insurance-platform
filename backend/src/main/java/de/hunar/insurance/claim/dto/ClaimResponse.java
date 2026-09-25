@@ -15,6 +15,8 @@ public record ClaimResponse(
         )
         Long id,
 
+        Long policyId,
+
         @Schema(
                 description = "Kundennummer",
                 example = "K12345"
