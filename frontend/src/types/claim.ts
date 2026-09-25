@@ -1,6 +1,6 @@
 export interface Claim {
-    id: number;
-    customerNumber: string;
-    claimType: string;
-    amount: number;
+  id: number
+  customerNumber: string
+  claimType: string
+  amount: number
 }

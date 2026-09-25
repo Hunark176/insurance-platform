@@ -16,6 +16,9 @@ frontend/generated/
 # IDE
 .idea/
 .vscode/
+!frontend/.vscode/
+!frontend/.vscode/settings.json
+!frontend/.vscode/extensions.json
 *.iml
 
 # Logs
