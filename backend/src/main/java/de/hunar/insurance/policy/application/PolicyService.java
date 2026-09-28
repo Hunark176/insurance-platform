@@ -21,6 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +60,11 @@ public class PolicyService implements PolicyApi {
         return mapper.toResponse(get(id));
     }
 
+    @Transactional(readOnly = true)
+    public List<PolicyResponse> findAllResponses() {
+        return repository.findAll().stream().map(mapper::toResponse).toList();
+    }
+
     @Transactional
     public PolicyResponse cancel(Long id) {
         Policy policy = get(id);
@@ -65,7 +75,22 @@ public class PolicyService implements PolicyApi {
     @Override
     @Transactional(readOnly = true)
     public PolicySnapshot getSnapshot(Long id) {
-        return mapper.toSnapshot(get(id));
+        Policy policy = get(id);
+        return mapper.toSnapshot(policy, customerApi.findById(policy.getCustomerId()).customerNumber());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PolicySnapshot> getSnapshots(Collection<Long> ids) {
+        List<Policy> policies = repository.findAllById(ids);
+        Map<Long, String> customerNumbers = policies.stream()
+                .map(Policy::getCustomerId)
+                .distinct()
+                .map(customerApi::findById)
+                .collect(Collectors.toMap(customer -> customer.id(), customer -> customer.customerNumber()));
+        return policies.stream()
+                .map(policy -> mapper.toSnapshot(policy, customerNumbers.get(policy.getCustomerId())))
+                .toList();
     }
 
     @Override

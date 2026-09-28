@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchClaims } from '@/api/claimService.ts'
 import type { Claim } from '@/types/claim.ts'
 
@@ -14,7 +14,7 @@ export function useClaims() {
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
-  const handleLoadClaims = async () => {
+  const handleLoadClaims = useCallback(async () => {
     try {
       setLoading(true)
       setMessage('')
@@ -27,7 +27,14 @@ export function useClaims() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void handleLoadClaims()
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [handleLoadClaims])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

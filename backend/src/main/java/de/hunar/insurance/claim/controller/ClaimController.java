@@ -5,7 +5,6 @@ package de.hunar.insurance.claim.controller;
 import de.hunar.insurance.claim.entity.ClaimStatus;
 import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
-import de.hunar.insurance.claim.mapper.ClaimMapper;
 import de.hunar.insurance.claim.service.ClaimService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,14 +28,13 @@ import java.util.List;
 public class ClaimController {
 
     private final ClaimService claimService;
-    private final ClaimMapper claimMapper;
 
     @GetMapping
     @Operation(summary = "Alle Claims laden")
     @ApiResponse(responseCode = "200", description = "Liste aller Claims erfolgreich geladen")
     @PreAuthorize("isAuthenticated()")
     public List<ClaimResponse> getAllClaims() {
-        return claimService.getAllClaims().stream().map(claimMapper::toResponse).toList();
+        return claimService.getAllClaimResponses();
     }
 
     @GetMapping("/{id}")
@@ -50,7 +48,7 @@ public class ClaimController {
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id
     ) {
-        return claimMapper.toResponse(claimService.getClaimById(id));
+        return claimService.getClaimResponse(id);
     }
 
     @PostMapping
@@ -62,7 +60,7 @@ public class ClaimController {
             @Parameter(description = "Claim-Daten zum Erstellen")
             @Valid @RequestBody CreateClaimRequest request
     ) {
-        return claimMapper.toResponse(claimService.createClaim(claimMapper.toEntity(request)));
+        return claimService.createClaimResponse(request);
     }
 
     @PatchMapping("/{id}/status")
@@ -78,7 +76,7 @@ public class ClaimController {
             @Parameter(description = "Neuer Status", example = "IN_PROGRESS")
             @RequestParam ClaimStatus newStatus
     ) {
-        return claimMapper.toResponse(claimService.updateClaim(id, newStatus));
+        return claimService.updateClaimResponse(id, newStatus);
     }
 
     @DeleteMapping("/{id}")

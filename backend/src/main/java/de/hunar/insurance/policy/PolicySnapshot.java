@@ -7,6 +7,7 @@ import java.time.LocalDate;
 public record PolicySnapshot(
         Long id,
         Long customerId,
+        String customerNumber,
         Long productId,
         LocalDate validFrom,
         LocalDate validTo,
