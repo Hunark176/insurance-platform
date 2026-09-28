@@ -12,8 +12,8 @@ public class PolicyMapper {
         return new PolicyResponse(p.getId(), p.getCustomerId(), p.getProductId(), p.getValidFrom(), p.getValidTo(),
                 p.getCoverageLimit(), p.getPremium(), p.getStatus());
     }
-    public PolicySnapshot toSnapshot(Policy p) {
-        return new PolicySnapshot(p.getId(), p.getCustomerId(), p.getProductId(), p.getValidFrom(), p.getValidTo(),
-                Money.eur(p.getCoverageLimit()));
+    public PolicySnapshot toSnapshot(Policy p, String customerNumber) {
+        return new PolicySnapshot(p.getId(), p.getCustomerId(), customerNumber, p.getProductId(),
+                p.getValidFrom(), p.getValidTo(), Money.eur(p.getCoverageLimit()));
     }
 }

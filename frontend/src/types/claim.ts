@@ -3,4 +3,5 @@ export interface Claim {
   customerNumber: string
   claimType: string
   amount: number
+  occurredOn: string
 }

@@ -98,6 +98,9 @@ export function ClaimTable({
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Claim-Typ
                 </th>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Schadendatum
+                </th>
                 <th className="px-6 py-4">
                   <button
                     type="button"
@@ -128,6 +131,11 @@ export function ClaimTable({
                     <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200">
                       {claim.claimType}
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-gray-700">
+                    {new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeZone: 'UTC' }).format(
+                      new Date(`${claim.occurredOn}T00:00:00Z`),
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <span className="font-semibold text-gray-900">

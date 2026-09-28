@@ -9,11 +9,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/policies")
 @RequiredArgsConstructor
 public class PolicyController {
     private final PolicyService service;
+
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public List<PolicyResponse> findAll() { return service.findAllResponses(); }
+
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public PolicyResponse issue(@Valid @RequestBody IssuePolicyRequest request) { return service.issue(request); }

@@ -10,6 +10,5 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
 
     List<Claim> findByStatus(ClaimStatus status);
-    List<Claim> findByCustomerNumber(String customerNumber);
     List<Claim> findByStatusOrderByCreatedAtDesc(ClaimStatus status);
 }

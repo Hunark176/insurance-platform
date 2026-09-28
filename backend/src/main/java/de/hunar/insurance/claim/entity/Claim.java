@@ -1,75 +1,71 @@
 package de.hunar.insurance.claim.entity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @Entity
-@Table(name = "claims")
-@Schema(description = "Ein Schadenfall im System")
+@Table(
+        name = "claims",
+        indexes = {
+                @Index(name = "idx_claim_policy_id", columnList = "policy_id"),
+                @Index(name = "idx_claim_status", columnList = "status"),
+                @Index(name = "idx_claim_created_at", columnList = "created_at")
+        }
+)
+@Schema(description = "Ein Schadenfall im Versicherungssystem")
 public class Claim {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Schema(
-            description = "Eindeutige ID des Claims",
+            description = "Eindeutige ID des Schadenfalls",
             example = "1",
             accessMode = Schema.AccessMode.READ_ONLY
     )
     private Long id;
 
-    @Column(name = "policy_id")
-    private Long policyId;
-
-    @NotBlank
-    @Size(max = 50)
+    @NotNull
     @Column(
-            name = "customer_number",
-            nullable = false,
-            length = 50
+            name = "policy_id",
+            nullable = false
     )
     @Schema(
-            description = "Kundennummer",
-            example = "K12345",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            description = "ID der Versicherungspolice, zu der der Schadenfall gehört",
+            example = "1"
     )
-    private String customerNumber;
+    private Long policyId;
 
-    @NotBlank
-    @Size(max = 100)
+    @NotNull
+    @Column(name = "occurred_on", nullable = false)
+    @Schema(description = "Datum des Schadenereignisses", example = "2026-09-20")
+    private LocalDate occurredOn;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
     @Column(
             name = "claim_type",
             nullable = false,
-            length = 100
+            length = 30
     )
     @Schema(
-            description = "Typ des Claims, zum Beispiel Auto, Haus oder Leben",
-            example = "Auto",
+            description = "Art des Schadenfalls",
+            example = "AUTO",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    private String claimType;
+    private ClaimType claimType;
 
     @Size(
             max = 1000,
@@ -81,17 +77,13 @@ public class Claim {
     )
     @Schema(
             description = "Detaillierte Beschreibung des Schadens",
-            example = "Kratzer am Lack",
+            example = "Kratzer und Delle an der linken Fahrzeugtür",
             maxLength = 1000
     )
     private String description;
 
     @NotNull
-    @DecimalMin(
-            value = "0.00",
-            inclusive = true,
-            message = "Der Schadenbetrag darf nicht negativ sein"
-    )
+    @DecimalMin(value = "0.01", message = "Der Schadenbetrag muss größer als null sein")
     @Column(
             name = "amount",
             nullable = false,
@@ -99,12 +91,13 @@ public class Claim {
             scale = 2
     )
     @Schema(
-            description = "Schadenbetrag in Euro",
-            example = "500.00",
+            description = "Geschätzter Schadenbetrag in Euro",
+            example = "1250.00",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private BigDecimal amount;
 
+    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(
             name = "status",
@@ -112,11 +105,12 @@ public class Claim {
             length = 30
     )
     @Schema(
-            description = "Aktueller Bearbeitungsstatus",
+            description = "Aktueller Bearbeitungsstatus des Schadenfalls",
             example = "RECEIVED",
             accessMode = Schema.AccessMode.READ_ONLY
     )
-    private ClaimStatus status;
+    @Builder.Default
+    private ClaimStatus status = ClaimStatus.RECEIVED;
 
     @Column(
             name = "created_at",
@@ -130,14 +124,33 @@ public class Claim {
     )
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    @Schema(
+            description = "Zeitpunkt der letzten Änderung",
+            example = "2026-09-25T10:30:00",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = now;
+        }
+
+        if (updatedAt == null) {
+            updatedAt = now;
         }
 
         if (status == null) {
             status = ClaimStatus.RECEIVED;
         }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

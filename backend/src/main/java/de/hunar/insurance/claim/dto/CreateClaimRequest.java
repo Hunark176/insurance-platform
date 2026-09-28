@@ -1,17 +1,25 @@
 package de.hunar.insurance.claim.dto;
 
+import de.hunar.insurance.claim.entity.ClaimType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Schema(description = "Daten zum Anlegen eines neuen Schadenfalls")
 public record CreateClaimRequest(
 
+        @NotNull(message = "Policen-ID ist erforderlich")
         Long policyId,
+
+        @NotNull(message = "Schadendatum ist erforderlich")
+        @PastOrPresent(message = "Das Schadendatum darf nicht in der Zukunft liegen")
+        LocalDate occurredOn,
 
         @NotBlank(message = "Kundennummer darf nicht leer sein")
         @Size(max = 50, message = "Kundennummer darf maximal 50 Zeichen enthalten")
@@ -22,14 +30,8 @@ public record CreateClaimRequest(
         )
         String customerNumber,
 
-        @NotBlank(message = "Claim-Typ darf nicht leer sein")
-        @Size(max = 100, message = "Claim-Typ darf maximal 100 Zeichen enthalten")
-        @Schema(
-                description = "Typ des Schadenfalls",
-                example = "AUTO",
-                requiredMode = Schema.RequiredMode.REQUIRED
-        )
-        String claimType,
+        @NotNull(message = "Claim-Typ ist erforderlich")
+        ClaimType claimType,
 
         @Size(
                 max = 1000,
@@ -42,11 +44,7 @@ public record CreateClaimRequest(
         String description,
 
         @NotNull(message = "Schadenbetrag ist erforderlich")
-        @DecimalMin(
-                value = "0.00",
-                inclusive = true,
-                message = "Der Schadenbetrag darf nicht negativ sein"
-        )
+        @DecimalMin(value = "0.01", message = "Der Schadenbetrag muss größer als null sein")
         @Schema(
                 description = "Geschätzter Schadenbetrag in Euro",
                 example = "500.00",

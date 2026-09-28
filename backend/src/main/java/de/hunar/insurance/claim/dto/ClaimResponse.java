@@ -4,6 +4,7 @@ import de.hunar.insurance.claim.entity.ClaimStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Schema(description = "Antwortdaten eines Schadenfalls")
@@ -51,6 +52,9 @@ public record ClaimResponse(
                 description = "Zeitpunkt der Erstellung",
                 example = "2026-09-24T17:00:00"
         )
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+
+        @Schema(description = "Datum des Schadenereignisses", example = "2026-09-20")
+        LocalDate occurredOn
 ) {
 }

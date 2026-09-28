@@ -1,13 +1,13 @@
 package de.hunar.insurance.claim.controller;
 
-import de.hunar.insurance.claim.mapper.ClaimMapper;
+import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.service.ClaimService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -16,11 +16,11 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 @WebMvcTest(ClaimController.class)
-@Import({ClaimMapper.class, de.hunar.insurance.shared.security.SecurityConfig.class})
+@Import(de.hunar.insurance.shared.security.SecurityConfig.class)
 class ClaimControllerSecurityTest {
     @Autowired
     private MockMvc mockMvc;
-    @MockBean
+    @MockitoBean
     private ClaimService claimService;
 
     @Test
@@ -31,7 +31,7 @@ class ClaimControllerSecurityTest {
     @Test
     @WithMockUser(username = "clerk", roles = "CLERK")
     void authenticatedClerkMayReadClaims() throws Exception {
-        when(claimService.getAllClaims()).thenReturn(List.of());
+        when(claimService.getAllClaimResponses()).thenReturn(List.<ClaimResponse>of());
         mockMvc.perform(get("/api/claims")).andExpect(status().isOk());
     }
 }
