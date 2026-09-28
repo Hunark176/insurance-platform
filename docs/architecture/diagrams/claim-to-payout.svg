@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="600" viewBox="0 0 1320 600" role="img" aria-labelledby="title desc">
+  <title id="title">Sequenzdiagramm Claim bis Auszahlung</title>
+  <desc id="desc">Claim wird über REST erfasst, mit Policy abgeglichen, geprüft und genehmigt; Genehmigungsereignis erzeugt eine Auszahlung im Billing.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker>
+    <marker id="event" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#9333ea"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172554}.title{font-size:24px;font-weight:700}.head{font-size:15px;font-weight:700}.small{font-size:12px;fill:#334155}.life{stroke:#94a3b8;stroke-width:1.5;stroke-dasharray:6 6}.call{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#arrow)}.evt{stroke:#9333ea;stroke-width:2;stroke-dasharray:7 5;fill:none;marker-end:url(#event)}
+    </style>
+  </defs>
+  <rect width="1320" height="600" fill="#fff"/>
+  <text x="35" y="43" class="title">Sequenz: Claim erfassen, genehmigen und auszahlen</text>
+  <g text-anchor="middle">
+    <text x="100" y="88" class="head">Client</text><text x="300" y="88" class="head">ClaimController</text>
+    <text x="510" y="88" class="head">ClaimService</text><text x="730" y="88" class="head">PolicyApi</text>
+    <text x="950" y="88" class="head">Claim DB</text><text x="1170" y="88" class="head">Billing Listener</text>
+  </g>
+  <g class="life">
+    <path d="M100 100V540"/><path d="M300 100V540"/><path d="M510 100V540"/>
+    <path d="M730 100V540"/><path d="M950 100V540"/><path d="M1170 100V540"/>
+  </g>
+  <path d="M100 135H300" class="call"/><text x="200" y="126" text-anchor="middle" class="small">POST /api/claims</text>
+  <path d="M300 175H510" class="call"/><text x="405" y="166" text-anchor="middle" class="small">CreateClaimRequest</text>
+  <path d="M510 215H730" class="call"/><text x="620" y="205" text-anchor="middle" class="small">Snapshot + Deckung am Schadentag</text>
+  <path d="M730 250H510" class="call"/><text x="620" y="241" text-anchor="middle" class="small">PolicySnapshot / aktiv?</text>
+  <path d="M510 290H950" class="call"/><text x="730" y="281" text-anchor="middle" class="small">Claim speichern: RECEIVED</text>
+  <path d="M100 340H300" class="call"/><text x="200" y="331" text-anchor="middle" class="small">PATCH .../status?newStatus=IN_REVIEW</text>
+  <path d="M100 385H300" class="call"/><text x="200" y="376" text-anchor="middle" class="small">PATCH .../status?newStatus=APPROVED</text>
+  <path d="M300 420H510" class="call"/><text x="405" y="411" text-anchor="middle" class="small">Statuswechsel validieren</text>
+  <path d="M510 455H730" class="call"/><text x="620" y="446" text-anchor="middle" class="small">Deckung und Limit erneut prüfen</text>
+  <path d="M510 485H950" class="call"/><text x="730" y="476" text-anchor="middle" class="small">Status APPROVED persistieren</text>
+  <path d="M510 515H1170" class="evt"/><text x="840" y="506" text-anchor="middle" class="small">ClaimApprovedEvent (Claim, Police, EUR-Betrag)</text>
+  <path d="M1170 545H950" class="call"/><text x="1060" y="536" text-anchor="middle" class="small">Payout anlegen, falls noch nicht vorhanden</text>
+</svg>

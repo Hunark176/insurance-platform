@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="590" viewBox="0 0 1180 590" role="img" aria-labelledby="title desc">
+  <title id="title">Systemkontext und Laufzeitkomponenten</title>
+  <desc id="desc">Browser kommuniziert mit React Frontend, dieses mit dem modularen Spring Boot Backend und einer relationalen Datenbank.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172554}.title{font-size:25px;font-weight:700}.head{font-size:19px;font-weight:700}.body{font-size:15px}.small{font-size:13px;fill:#334155}.box{rx:14;stroke-width:2}.line{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1180" height="590" fill="#fff"/>
+  <text x="40" y="48" class="title">Systemkontext und Laufzeitkomponenten</text>
+  <rect x="44" y="205" width="195" height="150" class="box" fill="#f8fafc" stroke="#64748b"/>
+  <text x="141" y="248" text-anchor="middle" class="head">Benutzer</text>
+  <text x="141" y="278" text-anchor="middle" class="body">Sachbearbeitung</text>
+  <text x="141" y="303" text-anchor="middle" class="body">Kunde / Admin</text>
+  <text x="141" y="333" text-anchor="middle" class="small">Browser</text>
+  <rect x="315" y="170" width="235" height="220" class="box" fill="#eff6ff" stroke="#2563eb"/>
+  <text x="432" y="212" text-anchor="middle" class="head">Web-Frontend</text>
+  <text x="432" y="244" text-anchor="middle" class="body">React + TypeScript</text>
+  <text x="432" y="271" text-anchor="middle" class="body">Vite (Entwicklung)</text>
+  <text x="432" y="314" text-anchor="middle" class="small">Claims / Policen</text>
+  <text x="432" y="340" text-anchor="middle" class="small">Port 5173</text>
+  <text x="432" y="366" text-anchor="middle" class="small">/api-Proxy (dev)</text>
+  <rect x="650" y="100" width="300" height="360" class="box" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="800" y="143" text-anchor="middle" class="head">Spring Boot (Port 8080)</text>
+  <text x="800" y="175" text-anchor="middle" class="small">Ein Prozess: modularer Monolith</text>
+  <rect x="678" y="202" width="115" height="66" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="735" y="242" text-anchor="middle" class="body">Policy</text>
+  <rect x="807" y="202" width="115" height="66" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="864" y="242" text-anchor="middle" class="body">Claim</text>
+  <rect x="678" y="286" width="115" height="66" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="735" y="326" text-anchor="middle" class="body">Customer</text>
+  <rect x="807" y="286" width="115" height="66" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="864" y="326" text-anchor="middle" class="body">Product</text>
+  <rect x="678" y="370" width="115" height="60" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="735" y="406" text-anchor="middle" class="body">Underwriting</text>
+  <rect x="807" y="370" width="115" height="60" rx="9" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="864" y="406" text-anchor="middle" class="body">Billing</text>
+  <rect x="1010" y="195" width="145" height="170" class="box" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="1082" y="235" text-anchor="middle" class="head">Relationale</text>
+  <text x="1082" y="260" text-anchor="middle" class="head">Datenbank</text>
+  <text x="1082" y="299" text-anchor="middle" class="body">H2 (dev)</text>
+  <text x="1082" y="327" text-anchor="middle" class="body">PostgreSQL</text>
+  <path d="M239 280 L315 280" class="line"/>
+  <text x="277" y="266" text-anchor="middle" class="small">HTTP</text>
+  <path d="M550 280 L650 280" class="line"/>
+  <text x="600" y="266" text-anchor="middle" class="small">REST /api</text>
+  <path d="M950 280 L1010 280" class="line"/>
+  <text x="979" y="265" text-anchor="middle" class="small">JPA / JDBC</text>
+  <text x="45" y="520" class="small">Kein separater Fachservice und kein Message Broker im aktuellen Compose-Setup.</text>
+</svg>

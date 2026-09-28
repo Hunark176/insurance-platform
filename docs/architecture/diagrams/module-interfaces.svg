@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="720" viewBox="0 0 1180 720" role="img" aria-labelledby="title desc">
+  <title id="title">Fachmodule und ihre Schnittstellen</title>
+  <desc id="desc">Policy ruft Customer, Product und Underwriting APIs auf; Claim ruft Policy API auf; Billing erhält Policy- und Claim-Ereignisse.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker>
+    <marker id="event" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#9333ea"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172554}.title{font-size:25px;font-weight:700}.head{font-size:18px;font-weight:700}.body{font-size:14px}.small{font-size:12px;fill:#334155}.box{rx:13;stroke-width:2}.call{stroke:#475569;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.evt{stroke:#9333ea;stroke-width:2.5;stroke-dasharray:8 6;fill:none;marker-end:url(#event)}
+    </style>
+  </defs>
+  <rect width="1180" height="720" fill="#fff"/>
+  <text x="40" y="48" class="title">Fachmodule und interne Modulverträge</text>
+  <rect x="405" y="110" width="260" height="105" class="box" fill="#eff6ff" stroke="#2563eb"/>
+  <text x="535" y="151" text-anchor="middle" class="head">Policy</text>
+  <text x="535" y="180" text-anchor="middle" class="small">PolicyApi / PolicySnapshot</text>
+  <rect x="65" y="320" width="220" height="95" class="box" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="175" y="359" text-anchor="middle" class="head">Customer</text>
+  <text x="175" y="388" text-anchor="middle" class="small">CustomerApi / CustomerSummary</text>
+  <rect x="355" y="320" width="220" height="95" class="box" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="465" y="359" text-anchor="middle" class="head">Product</text>
+  <text x="465" y="388" text-anchor="middle" class="small">ProductApi / ProductSummary</text>
+  <rect x="645" y="320" width="220" height="95" class="box" fill="#f0fdf4" stroke="#16a34a"/>
+  <text x="755" y="359" text-anchor="middle" class="head">Underwriting</text>
+  <text x="755" y="388" text-anchor="middle" class="small">UnderwritingApi</text>
+  <rect x="900" y="110" width="220" height="105" class="box" fill="#eff6ff" stroke="#2563eb"/>
+  <text x="1010" y="151" text-anchor="middle" class="head">Claim</text>
+  <text x="1010" y="180" text-anchor="middle" class="small">ClaimApi / Claim-Domäne</text>
+  <rect x="900" y="505" width="220" height="105" class="box" fill="#fff7ed" stroke="#ea580c"/>
+  <text x="1010" y="547" text-anchor="middle" class="head">Billing</text>
+  <text x="1010" y="576" text-anchor="middle" class="small">Invoice / Payout</text>
+  <path d="M465 320 C440 265 440 245 490 215" class="call"/>
+  <text x="405" y="270" class="small">CustomerApi</text>
+  <path d="M465 320 C475 268 500 246 520 215" class="call"/>
+  <text x="509" y="280" class="small">ProductApi</text>
+  <path d="M755 320 C740 263 675 245 620 215" class="call"/>
+  <text x="676" y="270" class="small">UnderwritingApi</text>
+  <path d="M900 164 L665 164" class="call"/>
+  <text x="782" y="150" text-anchor="middle" class="small">PolicyApi</text>
+  <path d="M665 192 C760 240 900 245 960 505" class="evt"/>
+  <text x="790" y="260" class="small">PolicyIssuedEvent</text>
+  <path d="M1010 215 L1010 505" class="evt"/>
+  <text x="1020" y="360" class="small">ClaimApprovedEvent</text>
+  <rect x="65" y="505" width="600" height="105" class="box" fill="#f8fafc" stroke="#64748b"/>
+  <text x="365" y="544" text-anchor="middle" class="head">shared</text>
+  <text x="365" y="574" text-anchor="middle" class="body">Security · Web-Fehler · Auditing · Money · Konfiguration</text>
+  <text x="65" y="660" class="small">Durchgezogene Pfeile = synchroner API-Aufruf. Gestrichelte Pfeile = Domain-Event zum Billing-Listener.</text>
+</svg>

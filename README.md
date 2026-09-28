@@ -51,7 +51,14 @@ Die API-Dokumentation ist unter
 `http://localhost:8080/swagger-ui.html` verfügbar.
 
 Die Modularchitektur ist in [docs/architecture.md](docs/architecture.md)
-dokumentiert. `ModularityTest` prüft die Grenzen und verhindert Zyklen.
+dokumentiert. Die [ausführliche technische Architektur- und
+Schnittstellendokumentation](docs/architecture/technical-documentation.md)
+beschreibt Module, Abläufe, REST-Schnittstellen, Betrieb und bekannte Grenzen.
+Die [Architektur-Roadmap](docs/architecture/architecture-roadmap.md) hält
+priorisierte zukünftige Arbeiten, Abnahmekriterien und bewusst zurückgestellte
+Umbauten fest. Sie ist als Orientierung gedacht, nicht als Auftrag, während der
+Einarbeitung sofort alles umzusetzen.
+`ModularityTest` prüft die Grenzen und verhindert Zyklen.
 Ein genehmigter Claim veröffentlicht `ClaimApprovedEvent`; Billing erzeugt
 daraus genau eine Auszahlung.
 
