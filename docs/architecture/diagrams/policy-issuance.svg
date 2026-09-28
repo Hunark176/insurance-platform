@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="550" viewBox="0 0 1220 550" role="img" aria-labelledby="title desc">
+  <title id="title">Sequenzdiagramm Policenausgabe</title>
+  <desc id="desc">REST-Aufruf prüft Kunde, Produkt und Underwriting, speichert Police und löst per Ereignis eine Rechnungserstellung aus.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker>
+    <marker id="event" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#9333ea"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172554}.title{font-size:24px;font-weight:700}.head{font-size:16px;font-weight:700}.small{font-size:13px;fill:#334155}.life{stroke:#94a3b8;stroke-width:1.5;stroke-dasharray:6 6}.call{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#arrow)}.evt{stroke:#9333ea;stroke-width:2;stroke-dasharray:7 5;fill:none;marker-end:url(#event)}
+    </style>
+  </defs>
+  <rect width="1220" height="550" fill="#fff"/>
+  <text x="35" y="43" class="title">Sequenz: Policenausgabe und Rechnung</text>
+  <g text-anchor="middle">
+    <text x="100" y="92" class="head">REST-Client</text><text x="305" y="92" class="head">PolicyService</text>
+    <text x="500" y="92" class="head">Customer / Product</text><text x="700" y="92" class="head">Underwriting</text>
+    <text x="895" y="92" class="head">Policy DB</text><text x="1090" y="92" class="head">Billing</text>
+  </g>
+  <g class="life">
+    <path d="M100 105V485"/><path d="M305 105V485"/><path d="M500 105V485"/>
+    <path d="M700 105V485"/><path d="M895 105V485"/><path d="M1090 105V485"/>
+  </g>
+  <path d="M100 140H305" class="call"/><text x="202" y="130" text-anchor="middle" class="small">POST /api/policies</text>
+  <path d="M305 185H500" class="call"/><text x="402" y="175" text-anchor="middle" class="small">Kunde vorhanden? Produktdaten</text>
+  <path d="M500 220H305" class="call"/><text x="402" y="212" text-anchor="middle" class="small">Summaries</text>
+  <path d="M305 260H700" class="call"/><text x="502" y="250" text-anchor="middle" class="small">canIssue(customerId, productId)</text>
+  <path d="M700 295H305" class="call"/><text x="502" y="287" text-anchor="middle" class="small">Eignung</text>
+  <path d="M305 340H895" class="call"/><text x="600" y="330" text-anchor="middle" class="small">Police speichern (ACTIVE)</text>
+  <path d="M305 380H1090" class="evt"/><text x="695" y="370" text-anchor="middle" class="small">PolicyIssuedEvent</text>
+  <path d="M1090 420H895" class="call"/><text x="992" y="410" text-anchor="middle" class="small">Invoice anlegen, falls fehlt</text>
+  <path d="M305 465H100" class="call"/><text x="202" y="455" text-anchor="middle" class="small">201 + PolicyResponse</text>
+</svg>
