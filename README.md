@@ -1,43 +1,105 @@
 # Insurance Platform
 
-Monorepo für eine Versicherungsplattform mit Spring-Boot-Backend und
-React/Vite-Frontend.
+Portfolio-Projekt für die digitale Abbildung ausgewählter Versicherungsprozesse.
+Das Monorepo verbindet ein Spring-Boot-Backend mit einem React-Frontend und
+entwickelt den fachlichen Umfang sowie die Architektur schrittweise weiter.
+
+## Funktionen
+
+Die REST-API bildet derzeit folgende Abläufe ab:
+
+- Kunden und Versicherungsprodukte anlegen und abrufen
+- Policen ausstellen, anzeigen und kündigen
+- Schadenfälle melden, paginiert und nach Police gefiltert abrufen sowie ihren
+  Bearbeitungsstatus verwalten
+- Auszahlungen zu genehmigten Schäden erzeugen und durch Admins als bezahlt
+  markieren
+- Policen auf ihre Eignung für einen Antrag prüfen
+
+Die Weboberfläche enthält aktuell Ansichten für Schadenfälle und Policen. Die
+übrigen Funktionen sind über die REST-API verfügbar. Der Umfang ist ein
+Portfolio- und Lernprojekt, keine produktionsfertige Versicherungsplattform.
+
+## Tech-Stack
+
+| Bereich | Technologien |
+| --- | --- |
+| Backend | Java 21, Spring Boot 3, Spring Data JPA, Hibernate, Spring Modulith |
+| API und Validierung | REST, OpenAPI/Swagger, Jakarta Bean Validation |
+| Datenbanken | H2 für Entwicklung und Tests; PostgreSQL mit Flyway im Profil `local` |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Qualitätssicherung | Maven, JUnit, Mockito, ESLint, GitHub Actions |
+| Container | Docker und Docker Compose |
+
+## Architektur
+
+Das Backend ist als modularer Monolith organisiert: Fachbereiche wie Kunden,
+Produkte, Policen, Schäden und Billing sind Spring-Module mit klaren Grenzen.
+Genehmigte Schadenfälle lösen ein Event aus, aus dem Billing idempotent eine
+Auszahlung erstellt.
+
+Weitere Informationen:
+
+- [Architekturüberblick](docs/architecture.md)
+- [Technische Architektur- und API-Dokumentation](docs/architecture/technical-documentation.md)
+- [Architektur-Roadmap](docs/architecture/architecture-roadmap.md)
+- [API-Dokumentation und Swagger](docs/api/README.md)
 
 ## Voraussetzungen
 
 - Java 21
 - Node.js 22 oder neuer
-- Docker (optional, für PostgreSQL)
+- npm
+- Docker Desktop (optional, für PostgreSQL über Compose)
 
 ## Lokal starten
 
-Backend starten:
+Frontend-Abhängigkeiten einmalig aus dem Repository-Stamm installieren:
 
 ```powershell
-backend\mvnw.cmd -f backend\pom.xml spring-boot:run
+npm ci --prefix frontend
 ```
 
-Frontend in einem zweiten Terminal starten:
+Backend mit dem Standardprofil `dev` und eingebettetem H2 starten:
 
 ```powershell
+.\backend\mvnw.cmd -f backend\pom.xml spring-boot:run
+```
+
+Unter macOS/Linux den Maven Wrapper so starten:
+
+```bash
+bash backend/mvnw -f backend/pom.xml spring-boot:run
+```
+
+In einem zweiten Terminal das Frontend starten:
+
+```sh
 npm run dev
 ```
 
-Die Anwendung ist anschließend unter `http://localhost:5173` erreichbar. Das
-Frontend leitet `/api` an das Backend unter `http://localhost:8080` weiter.
-Die lokale Entwicklungsdatenbank ist eine eingebettete H2-Datenbank. Das
-Standardprofil `dev` ist für Tests und schnelle Entwicklung gedacht; das
-Profil `local` verwendet PostgreSQL und Flyway.
+Das Frontend ist unter <http://localhost:5173> erreichbar. Vite leitet
+`/api`-Anfragen an das Backend unter <http://localhost:8080> weiter.
 
-Die Entwicklungs-API verwendet HTTP Basic. Für lokale Tests stehen die
-Benutzer `customer/customer`, `clerk/clerk` und `admin/admin` zur Verfügung;
-fachliche Schreiboperationen benötigen mindestens die Rolle `CLERK`.
-
-Für PostgreSQL kann optional gestartet werden:
+Das Profil `dev` lädt Entwicklungsdaten in H2. Für eine PostgreSQL-Umgebung
+kann stattdessen der Backend- und Datenbank-Container gestartet werden:
 
 ```powershell
-docker compose up -d postgres
+docker compose up --build
 ```
+
+Compose startet PostgreSQL und das Backend mit dem Profil `local`; das
+Frontend kann weiterhin separat mit `npm run dev` gestartet werden. Zum
+Herunterfahren:
+
+```powershell
+docker compose down
+```
+
+Die API verwendet derzeit HTTP Basic und stellt die Demo-Benutzer
+`customer/customer`, `clerk/clerk` und `admin/admin` als In-Memory-Konten
+bereit. Diese Zugangsdaten sind ausschließlich für die Entwicklung gedacht
+und müssen vor einem produktiven Einsatz ersetzt werden.
 
 ## Qualitätssicherung
 
@@ -47,24 +109,38 @@ npm run build
 npm run test:backend
 ```
 
-Die API-Dokumentation ist unter
-`http://localhost:8080/swagger-ui.html` verfügbar.
+`npm run test:backend` ist für PowerShell/Windows eingerichtet. Unter
+macOS/Linux kann der Backend-Testlauf direkt über den Maven Wrapper gestartet
+werden:
 
-Die Modularchitektur ist in [docs/architecture.md](docs/architecture.md)
-dokumentiert. Die [ausführliche technische Architektur- und
-Schnittstellendokumentation](docs/architecture/technical-documentation.md)
-beschreibt Module, Abläufe, REST-Schnittstellen, Betrieb und bekannte Grenzen.
-Die [Architektur-Roadmap](docs/architecture/architecture-roadmap.md) hält
-priorisierte zukünftige Arbeiten, Abnahmekriterien und bewusst zurückgestellte
-Umbauten fest. Sie ist als Orientierung gedacht, nicht als Auftrag, während der
-Einarbeitung sofort alles umzusetzen.
-`ModularityTest` prüft die Grenzen und verhindert Zyklen.
-Ein genehmigter Claim veröffentlicht `ClaimApprovedEvent`; Billing erzeugt
-daraus genau eine Auszahlung.
+```bash
+bash backend/mvnw -f backend/pom.xml test
+```
+
+Die GitHub-Actions-CI führt Frontend-Linting und -Build sowie `mvn verify` für
+das Backend aus.
+
+## API ausprobieren
+
+Swagger UI: <http://localhost:8080/swagger-ui.html>
+
+Beispiele für die Claim-Übersicht (Authentifizierung erforderlich):
+
+```text
+GET /api/claims?page=0&size=20
+GET /api/claims?page=0&size=20&policyId=12345
+GET /api/claims/4712
+```
+
+Die Claim-Übersicht ist 0-basiert paginiert, liefert standardmäßig 20 und
+maximal 100 Einträge pro Seite. Weitere Endpunkte und Antwortformate sind in
+Swagger beschrieben.
 
 ## Projektstruktur
 
-- `backend/` - Java 21, Spring Boot, JPA und REST-API
-- `frontend/` - React, TypeScript und Vite
-- `docs/` - Architektur- und API-Dokumentation
-- `infra/` - Infrastruktur-Dokumentation
+```text
+backend/    Spring-Boot-Anwendung, Tests und Datenbankmigrationen
+frontend/   React-/TypeScript-Anwendung
+docs/       Architektur-, API- und Entscheidungsdokumentation
+infra/      ergänzende Infrastrukturdateien
+```
