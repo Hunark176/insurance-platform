@@ -189,7 +189,7 @@ konfiguriert.
 
 | Feature | UI-Bausteine                                                                     | Datenzugriff und sichtbare Funktion                              |
 | ------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Claims  | `ClaimForm` (tatsächlich Listenansicht), `ClaimStats`, `ClaimTable`, `useClaims` | Claims laden, lokal filtern/sortieren und Summen darstellen      |
+| Claims  | `ClaimForm` (tatsächlich Listenansicht), `ClaimStats`, `ClaimTable`, `useClaims` | Claims seitenweise laden, aktuelle Seite lokal filtern/sortieren und Summen darstellen |
 | Policen | `PolicyManagement`, `PolicyStats`, `PolicyTable`, `usePolicies`                  | Policen laden, lokal filtern/sortieren und Kennzahlen darstellen |
 
 Die API-Services verwenden Axios und relative Pfade (`/api/claims`,

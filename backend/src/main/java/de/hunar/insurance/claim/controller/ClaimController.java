@@ -1,10 +1,9 @@
 package de.hunar.insurance.claim.controller;
 
-
-// ← HIER die Swagger-Imports einfügen
-import de.hunar.insurance.claim.entity.ClaimStatus;
+import de.hunar.insurance.claim.dto.ClaimPageResponse;
 import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
+import de.hunar.insurance.claim.entity.ClaimStatus;
 import de.hunar.insurance.claim.service.ClaimService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,12 +12,15 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/claims")
@@ -30,11 +32,19 @@ public class ClaimController {
     private final ClaimService claimService;
 
     @GetMapping
-    @Operation(summary = "Alle Claims laden")
-    @ApiResponse(responseCode = "200", description = "Liste aller Claims erfolgreich geladen")
+    @Operation(summary = "Paginierte Claim-Übersicht laden")
+    @ApiResponse(responseCode = "200", description = "Paginierte Claim-Übersicht erfolgreich geladen")
     @PreAuthorize("isAuthenticated()")
-    public List<ClaimResponse> getAllClaims() {
-        return claimService.getAllClaimResponses();
+    public ClaimPageResponse getAllClaims(
+            @Parameter(description = "0-basierte Seitennummer", example = "0")
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @Parameter(description = "Anzahl der Claims pro Seite (maximal 100)", example = "20")
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @Parameter(description = "Optionaler Filter für die zugehörige Police", example = "12345")
+            @RequestParam(required = false) @Positive Long policyId
+    ) {
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
+        return claimService.getClaimResponses(PageRequest.of(page, size, sort), policyId);
     }
 
     @GetMapping("/{id}")

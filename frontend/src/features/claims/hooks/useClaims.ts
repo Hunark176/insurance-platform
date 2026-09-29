@@ -10,6 +10,9 @@ export function useClaims() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [totalClaims, setTotalClaims] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -18,8 +21,10 @@ export function useClaims() {
     try {
       setLoading(true)
       setMessage('')
-      const data = await fetchClaims()
-      setClaims(data)
+      const data = await fetchClaims(page)
+      setClaims(data.content)
+      setTotalClaims(data.totalElements)
+      setTotalPages(data.totalPages)
       setMessage('Daten erfolgreich geladen.')
     } catch (error) {
       console.error(error)
@@ -27,7 +32,7 @@ export function useClaims() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -42,6 +47,12 @@ export function useClaims() {
     } else {
       setSortField(field)
       setSortDirection('asc')
+    }
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage >= 0 && nextPage < totalPages) {
+      setPage(nextPage)
     }
   }
 
@@ -82,7 +93,11 @@ export function useClaims() {
     sortField,
     sortDirection,
     totalAmount,
+    page,
+    totalClaims,
+    totalPages,
     handleLoadClaims,
     handleSort,
+    handlePageChange,
   }
 }

@@ -14,8 +14,12 @@ export function ClaimForm() {
     sortField,
     sortDirection,
     totalAmount,
+    page,
+    totalClaims,
+    totalPages,
     handleLoadClaims,
     handleSort,
+    handlePageChange,
   } = useClaims()
 
   return (
@@ -53,7 +57,7 @@ export function ClaimForm() {
 
         {/* Statistics Component */}
         <ClaimStats
-          totalClaims={claims.length}
+          totalClaims={totalClaims}
           filteredCount={filteredClaims.length}
           totalAmount={totalAmount}
         />
@@ -69,6 +73,10 @@ export function ClaimForm() {
           sortDirection={sortDirection}
           onSort={handleSort}
           onLoadClaims={handleLoadClaims}
+          page={page}
+          totalPages={totalPages}
+          totalClaims={totalClaims}
+          onPageChange={handlePageChange}
         />
       </div>
     </div>

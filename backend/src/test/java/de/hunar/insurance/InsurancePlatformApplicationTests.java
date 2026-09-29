@@ -14,6 +14,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -61,9 +63,31 @@ class InsurancePlatformApplicationTests {
                 Integer.class))
                 .isEqualTo(3);
         assertThat(policyService.findAllResponses()).hasSize(1);
-        assertThat(claimService.getAllClaimResponses())
-                .hasSize(3)
+        assertThat(claimService.getClaimResponses(PageRequest.of(0, 2,
+                        Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))), null)
+                        .content())
+                .hasSize(2)
                 .allSatisfy(claim -> assertThat(claim.customerNumber()).isEqualTo("DEMO-1001"));
+    }
+
+    @Test
+    void claimOverviewIsPagedAndCanBeFilteredByPolicy() {
+        Long policyId = jdbcTemplate.queryForObject(
+                "select p.id from policies p join customers c on c.id = p.customer_id " +
+                        "where c.customer_number = 'DEMO-1001'", Long.class);
+        var pageable = PageRequest.of(0, 2, Sort.by(Sort.Direction.DESC, "createdAt")
+                .and(Sort.by(Sort.Direction.DESC, "id")));
+
+        var allClaims = claimService.getClaimResponses(pageable, null);
+        var policyClaims = claimService.getClaimResponses(pageable, policyId);
+
+        assertThat(allClaims.content()).hasSize(2);
+        assertThat(allClaims.totalElements()).isEqualTo(3);
+        assertThat(allClaims.totalPages()).isEqualTo(2);
+        assertThat(policyClaims.content()).hasSize(2)
+                .allSatisfy(claim -> assertThat(claim.policyId()).isEqualTo(policyId));
+        assertThat(policyClaims.totalElements()).isEqualTo(3);
+        assertThat(claimService.getClaimResponses(pageable, Long.MAX_VALUE).totalElements()).isZero();
     }
 
     @Test

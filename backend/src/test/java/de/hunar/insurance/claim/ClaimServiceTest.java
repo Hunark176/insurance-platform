@@ -1,6 +1,7 @@
 package de.hunar.insurance.claim;
 
 import de.hunar.insurance.claim.dto.ClaimResponse;
+import de.hunar.insurance.claim.dto.ClaimPageResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
 import de.hunar.insurance.claim.entity.Claim;
 import de.hunar.insurance.claim.entity.ClaimStatus;
@@ -21,9 +22,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,6 +83,31 @@ class ClaimServiceTest {
         assertThat(savedClaim.getValue().getOccurredOn()).isEqualTo(lossDate);
         assertThat(savedClaim.getValue().getStatus()).isEqualTo(ClaimStatus.RECEIVED);
         assertThat(response.status()).isEqualTo(ClaimStatus.RECEIVED);
+    }
+
+    @Test
+    void getClaimResponsesFiltersAndMapsOnlyTheRequestedPage() {
+        Pageable pageable = PageRequest.of(1, 2, Sort.by("createdAt").descending());
+        Claim claim = reviewClaim(new BigDecimal("250.00"));
+        when(claimRepository.findByPolicyId(policy.id(), pageable))
+                .thenReturn(new PageImpl<>(List.of(claim), pageable, 5));
+        when(policyApi.getSnapshots(List.of(policy.id()))).thenReturn(List.of(policy));
+        ClaimResponse response = new ClaimResponse(7L, policy.id(), policy.customerNumber(), "AUTO", "Loss",
+                claim.getAmount(), ClaimStatus.IN_REVIEW, null, lossDate);
+        when(claimMapper.toResponse(claim, policy)).thenReturn(response);
+
+        ClaimPageResponse result = claimService.getClaimResponses(pageable, policy.id());
+
+        assertThat(result.content()).containsExactly(response);
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.size()).isEqualTo(2);
+        assertThat(result.totalElements()).isEqualTo(5);
+        assertThat(result.totalPages()).isEqualTo(3);
+        assertThat(result.first()).isFalse();
+        assertThat(result.last()).isFalse();
+        verify(claimRepository).findByPolicyId(policy.id(), pageable);
+        verify(claimRepository, never()).findAll(any(Pageable.class));
+        verify(policyApi).getSnapshots(List.of(policy.id()));
     }
 
     @Test
