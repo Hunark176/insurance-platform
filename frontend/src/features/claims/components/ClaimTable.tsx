@@ -12,6 +12,10 @@ interface ClaimTableProps {
   sortDirection: 'asc' | 'desc'
   onSort: (field: 'id' | 'amount') => void
   onLoadClaims: () => void
+  page: number
+  totalPages: number
+  totalClaims: number
+  onPageChange: (page: number) => void
 }
 
 export function ClaimTable({
@@ -24,6 +28,10 @@ export function ClaimTable({
   sortDirection,
   onSort,
   onLoadClaims,
+  page,
+  totalPages,
+  totalClaims,
+  onPageChange,
 }: ClaimTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -33,7 +41,7 @@ export function ClaimTable({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Schadenfälle</h2>
             <p className="mt-1 text-sm text-gray-500">
-              {filteredClaims.length} von {claims.length} Claims
+              {filteredClaims.length} von {claims.length} Claims auf dieser Seite · {totalClaims} insgesamt
             </p>
           </div>
 
@@ -45,7 +53,7 @@ export function ClaimTable({
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Claims durchsuchen..."
+              placeholder="Diese Seite durchsuchen..."
               className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
@@ -53,18 +61,24 @@ export function ClaimTable({
       </div>
 
       {/* Empty State */}
-      {claims.length === 0 && !loading && (
+      {claims.length === 0 && !loading && totalClaims === 0 && (
         <div className="px-6 py-16 text-center">
           <div className="mb-4 text-5xl">📋</div>
-          <h3 className="text-lg font-semibold text-gray-900">Noch keine Claims geladen</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Keine Claims geladen</h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
-            Lade die Schadenfälle aus dem Spring-Boot-Backend, um sie hier anzuzeigen.
+            Für diese Übersicht wurden keine Schadenfälle zurückgegeben.
           </p>
           <div className="mt-6">
             <Button type="button" onClick={onLoadClaims}>
               Claims laden
             </Button>
           </div>
+        </div>
+      )}
+
+      {claims.length === 0 && !loading && totalClaims > 0 && (
+        <div className="px-6 py-12 text-center">
+          <p className="text-sm font-medium text-gray-700">Keine Claims auf dieser Seite</p>
         </div>
       )}
 
@@ -166,16 +180,41 @@ export function ClaimTable({
       )}
 
       {/* Footer */}
-      {claims.length > 0 && !loading && (
+      {totalClaims > 0 && !loading && (
         <div className="flex flex-col gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 text-sm text-gray-500 sm:flex-row sm:items-center sm:justify-between">
-          <span>{filteredClaims.length} Datensätze angezeigt</span>
-          <span>
-            Sortiert nach{' '}
-            <strong className="font-medium text-gray-700">
-              {sortField === 'id' ? 'ID' : 'Betrag'}
-            </strong>{' '}
-            ({sortDirection === 'asc' ? 'aufsteigend' : 'absteigend'})
-          </span>
+          <span>{filteredClaims.length} Datensätze auf dieser Seite angezeigt</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {claims.length > 0 && (
+              <span>
+                Sortiert nach{' '}
+                <strong className="font-medium text-gray-700">
+                  {sortField === 'id' ? 'ID' : 'Betrag'}
+                </strong>{' '}
+                ({sortDirection === 'asc' ? 'aufsteigend' : 'absteigend'})
+              </span>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => onPageChange(page - 1)}
+                className="rounded-lg border border-gray-300 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Zurück
+              </button>
+              <span>
+                Seite {page + 1} von {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={page + 1 >= totalPages}
+                onClick={() => onPageChange(page + 1)}
+                className="rounded-lg border border-gray-300 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Weiter
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

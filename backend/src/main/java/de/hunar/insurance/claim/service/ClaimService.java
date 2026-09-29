@@ -2,6 +2,7 @@ package de.hunar.insurance.claim.service;
 
 import de.hunar.insurance.claim.entity.Claim;
 import de.hunar.insurance.claim.entity.ClaimStatus;
+import de.hunar.insurance.claim.dto.ClaimPageResponse;
 import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
 import de.hunar.insurance.claim.events.ClaimApprovedEvent;
@@ -14,6 +15,8 @@ import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,13 +37,19 @@ public class ClaimService {
     private final ClaimMapper claimMapper;
 
     @Transactional(readOnly = true)
-    public List<ClaimResponse> getAllClaimResponses() {
-        List<Claim> claims = claimRepository.findAll();
+    public ClaimPageResponse getClaimResponses(Pageable pageable, Long policyId) {
+        Page<Claim> claimPage = policyId == null
+                ? claimRepository.findAll(pageable)
+                : claimRepository.findByPolicyId(policyId, pageable);
+        List<Claim> claims = claimPage.getContent();
         Map<Long, PolicySnapshot> policies = policyApi.getSnapshots(
                         claims.stream().map(Claim::getPolicyId).distinct().toList())
                 .stream().collect(Collectors.toMap(PolicySnapshot::id, Function.identity()));
-        return claims.stream().map(claim -> claimMapper.toResponse(claim, requirePolicy(policies, claim.getPolicyId())))
+        List<ClaimResponse> content = claims.stream()
+                .map(claim -> claimMapper.toResponse(claim, requirePolicy(policies, claim.getPolicyId())))
                 .toList();
+        return new ClaimPageResponse(content, claimPage.getNumber(), claimPage.getSize(),
+                claimPage.getTotalElements(), claimPage.getTotalPages(), claimPage.isFirst(), claimPage.isLast());
     }
 
     @Transactional(readOnly = true)
