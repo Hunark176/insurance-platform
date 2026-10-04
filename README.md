@@ -1,5 +1,18 @@
 # Insurance Platform
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="docs/screenshots/policies-overview.png" alt="Policenübersicht mit einer aktiven Police" width="100%" />
+      <sub>Policenübersicht</sub>
+    </td>
+    <td align="center">
+      <img src="docs/screenshots/claims-dashboard.png" alt="Schadenfall-Dashboard mit Kennzahlen und Claims-Tabelle" width="100%" />
+      <sub>Schadenfall-Dashboard</sub>
+    </td>
+  </tr>
+</table>
+
 Portfolio-Projekt für die digitale Abbildung ausgewählter Versicherungsprozesse.
 Das Monorepo verbindet ein Spring-Boot-Backend mit einem React-Frontend und
 entwickelt den fachlichen Umfang sowie die Architektur schrittweise weiter.
