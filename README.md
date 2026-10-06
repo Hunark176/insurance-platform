@@ -35,14 +35,14 @@ Portfolio- und Lernprojekt, keine produktionsfertige Versicherungsplattform.
 
 ## Tech-Stack
 
-| Bereich | Technologien |
-| --- | --- |
-| Backend | Java 21, Spring Boot 3, Spring Data JPA, Hibernate, Spring Modulith |
-| API und Validierung | REST, OpenAPI/Swagger, Jakarta Bean Validation |
-| Datenbanken | H2 für Entwicklung und Tests; PostgreSQL mit Flyway im Profil `local` |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
-| Qualitätssicherung | Maven, JUnit, Mockito, ESLint, GitHub Actions |
-| Container | Docker und Docker Compose |
+| Bereich             | Technologien                                                          |
+| ------------------- | --------------------------------------------------------------------- |
+| Backend             | Java 21, Spring Boot 3, Spring Data JPA, Hibernate, Spring Modulith   |
+| API und Validierung | REST, OpenAPI/Swagger, Jakarta Bean Validation                        |
+| Datenbanken         | H2 für Entwicklung und Tests; PostgreSQL mit Flyway im Profil `local` |
+| Frontend            | React 19, TypeScript, Vite, Tailwind CSS                              |
+| Qualitätssicherung  | Maven, JUnit, Mockito, ESLint, GitHub Actions                         |
+| Container           | Docker und Docker Compose                                             |
 
 ## Architektur
 
@@ -108,6 +108,31 @@ Herunterfahren:
 ```powershell
 docker compose down
 ```
+
+## Deployment
+
+Pushes to `main` build and publish the backend and frontend images to GitHub
+Container Registry, then deploy them over SSH. Prepare the server with Docker
+Compose and a clone of this repository at `~/insurance-platform`. The clone
+must be on `main`, have credentials that allow `git pull`, and have no local
+changes that would block a fast-forward update.
+
+Point your domain's DNS A/AAAA records at the server and allow inbound TCP
+ports `80` and `443` (plus UDP `443` for HTTP/3). Create
+`~/insurance-platform/.env` on the server with the domain and a strong database
+password before the first deployment:
+
+```dotenv
+DOMAIN=app.example.com
+POSTGRES_PASSWORD=replace-with-a-long-random-password
+```
+
+Add these repository Actions secrets under **Settings → Secrets and variables
+→ Actions**: `SSH_HOST`, `SSH_USER`, and `SSH_KEY`. `SSH_PORT` is optional and
+defaults to `22`. The workflow uses `GITHUB_TOKEN` to log in to GHCR on the
+server, so the repository token must be allowed to read the published package.
+Caddy obtains and renews HTTPS certificates automatically and proxies API
+requests to the backend and other requests to the frontend.
 
 Die API verwendet derzeit HTTP Basic und stellt die Demo-Benutzer
 `customer/customer`, `clerk/clerk` und `admin/admin` als In-Memory-Konten
