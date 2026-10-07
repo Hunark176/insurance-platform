@@ -1,12 +1,20 @@
 {$DOMAIN} {
     encode gzip zstd
 
+    @staticAssets path_regexp staticAssets \.(?i:js|css|woff2?|ttf|otf|eot|svg|png|jpe?g|gif|ico|webp)$
+    header @staticAssets Cache-Control "public, max-age=31536000, immutable"
+
+    @index path / /index.html
+    header @index Cache-Control "no-cache, no-store, must-revalidate"
+
     handle /api/* {
         reverse_proxy backend:8080
     }
 
     handle {
-        reverse_proxy frontend:80
+        root * /srv
+        try_files {path} /index.html
+        file_server
     }
 
     header {
