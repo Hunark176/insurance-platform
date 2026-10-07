@@ -111,11 +111,14 @@ docker compose down
 
 ## Deployment
 
-Pushes to `main` build and publish the backend and frontend images to GitHub
-Container Registry, then deploy them over SSH. Prepare the server with Docker
-Compose and a clone of this repository at `~/insurance-platform`. The clone
-must be on `main`, have credentials that allow `git pull`, and have no local
-changes that would block a fast-forward update.
+Pushes to `main` build and publish the backend and Caddy images to GitHub
+Container Registry. The Caddy image contains the built frontend, serves the
+single-page application, and proxies `/api` requests to the backend. Only Caddy
+publishes ports to the host; the database is on an internal network. Both images
+are deployed over SSH. Prepare the server with Docker Compose and a clone of
+this repository at `~/insurance-platform`. The clone must be on `main`, have
+credentials that allow `git pull`, and have no local changes that would block a
+fast-forward update.
 
 Point your domain's DNS A/AAAA records at the server and allow inbound TCP
 ports `80` and `443` (plus UDP `443` for HTTP/3). Create
@@ -126,6 +129,11 @@ password before the first deployment:
 DOMAIN=app.example.com
 POSTGRES_PASSWORD=replace-with-a-long-random-password
 ```
+
+Compose defaults to the `ghcr.io/hunark176/insurance-platform` image prefix and
+the `latest` image tag. Set `IMAGE_PREFIX` or `IMAGE_TAG` in this `.env` only
+when deploying images from another registry/repository or pinning a specific
+tag; the GitHub Actions deployment supplies both values automatically.
 
 Add these repository Actions secrets under **Settings → Secrets and variables
 → Actions**: `SSH_HOST`, `SSH_USER`, and `SSH_KEY`. `SSH_PORT` is optional and
