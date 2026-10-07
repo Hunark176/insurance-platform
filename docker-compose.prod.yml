@@ -9,9 +9,7 @@ services:
     volumes:
       - insurance-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        - CMD-SHELL
-        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      test: pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -19,7 +17,7 @@ services:
       - internal
 
   backend:
-    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/hunark176/insurance-platform}/backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-local}
@@ -34,14 +32,8 @@ services:
       - internal
       - web
 
-  frontend:
-    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/frontend:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    networks:
-      - web
-
   caddy:
-    image: caddy:2-alpine
+    image: ${IMAGE_PREFIX:-ghcr.io/hunark176/insurance-platform}/caddy:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN:?Set DOMAIN in the server .env file}
@@ -50,12 +42,10 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
       - backend
-      - frontend
     networks:
       - web
 
