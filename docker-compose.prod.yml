@@ -20,7 +20,7 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/hunark176/insurance-platform}/backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-local}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-prod}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-insurance}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-insurance}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env file}

@@ -73,7 +73,8 @@ Frontend-Abhängigkeiten einmalig aus dem Repository-Stamm installieren:
 npm ci --prefix frontend
 ```
 
-Backend mit dem Standardprofil `dev` und eingebettetem H2 starten:
+Backend mit dem Standardprofil `dev` und eingebettetem H2 starten. Dieses Profil
+legt bei jedem Start die Demo-Daten neu an; die H2-Datenbank ist flüchtig:
 
 ```powershell
 .\backend\mvnw.cmd -f backend\pom.xml spring-boot:run
@@ -94,16 +95,24 @@ npm run dev
 Das Frontend ist unter <http://localhost:5173> erreichbar. Vite leitet
 `/api`-Anfragen an das Backend unter <http://localhost:8080> weiter.
 
-Das Profil `dev` lädt Entwicklungsdaten in H2. Für eine PostgreSQL-Umgebung
-kann stattdessen der Backend- und Datenbank-Container gestartet werden:
+Für eine persistente lokale PostgreSQL-Umgebung kann stattdessen der Backend-
+und Datenbank-Container gestartet werden:
 
 ```powershell
 docker compose up --build
 ```
 
 Compose startet PostgreSQL und das Backend mit dem Profil `local`; das
-Frontend kann weiterhin separat mit `npm run dev` gestartet werden. Zum
-Herunterfahren:
+Frontend kann weiterhin separat mit `npm run dev` gestartet werden. Die
+PostgreSQL-Datenbank wird über ein Docker-Volume gespeichert. Demo-Daten nach
+einem leeren Datenbankstart einmalig laden:
+
+```powershell
+Get-Content -Raw backend\src\main\resources\db\dev-data.sql |
+  docker compose exec -T postgres psql -U insurance -d insurance
+```
+
+Zum Herunterfahren:
 
 ```powershell
 docker compose down
@@ -141,6 +150,23 @@ defaults to `22`. The workflow uses `GITHUB_TOKEN` to log in to GHCR on the
 server, so the repository token must be allowed to read the published package.
 Caddy obtains and renews HTTPS certificates automatically and proxies API
 requests to the backend and other requests to the frontend.
+
+Nach dem ersten Deployment oder wenn nur die Datensätze gelöscht wurden, kann
+die gleiche idempotente Demo-Datei auf dem Server eingespielt werden. Das
+Beispiel verwendet die Standardnamen `insurance`; bei abweichenden
+`POSTGRES_USER`- oder `POSTGRES_DB`-Werten diese entsprechend ersetzen:
+
+```bash
+cd ~/insurance-platform
+docker compose -f docker-compose.prod.yml exec -T db \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  < backend/src/main/resources/db/dev-data.sql
+```
+
+Die Datei stellt ausschließlich Demo-Kunde, Demo-Produkt, eine Police und drei
+Schäden wieder her. Gelöschte echte Daten können nur aus einem Datenbank-Backup
+wiederhergestellt werden. Das PostgreSQL-Volume nicht mit `docker compose down
+-v` löschen.
 
 Die API verwendet derzeit HTTP Basic und stellt die Demo-Benutzer
 `customer/customer`, `clerk/clerk` und `admin/admin` als In-Memory-Konten
