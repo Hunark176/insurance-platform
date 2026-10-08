@@ -126,8 +126,10 @@ single-page application, and proxies `/api` requests to the backend. Only Caddy
 publishes ports to the host; the database is on an internal network. Both images
 are deployed over SSH. Prepare the server with Docker Compose and a clone of
 this repository at `~/insurance-platform`. The clone must be on `main`, have
-credentials that allow `git pull`, and have no local changes that would block a
-fast-forward update.
+credentials that allow `git fetch`. Each deployment uses a temporary detached
+worktree at the deployed commit, so unrelated local changes in the server clone
+do not block deployment. Compose uses the fixed project name
+`insurance-platform` to keep the existing PostgreSQL volume.
 
 Point your domain's DNS A/AAAA records at the server and allow inbound TCP
 ports `80` and `443` (plus UDP `443` for HTTP/3). Create

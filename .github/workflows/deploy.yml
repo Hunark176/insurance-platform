@@ -88,9 +88,23 @@ jobs:
           envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_PREFIX,IMAGE_TAG
           script: |
             set -e
-            cd ~/insurance-platform
-            git pull --ff-only
+            REPO_DIR="$HOME/insurance-platform"
+            TEMP_DIR=$(mktemp -d)
+            WORKTREE="$TEMP_DIR/repo"
+            cleanup() {
+              git -C "$REPO_DIR" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+              rmdir "$TEMP_DIR" 2>/dev/null || true
+            }
+            trap cleanup EXIT
+            git -C "$REPO_DIR" fetch --quiet origin main
+            git -C "$REPO_DIR" worktree add --quiet --detach "$WORKTREE" "$IMAGE_TAG"
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
-            IMAGE_PREFIX="$IMAGE_PREFIX" IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml pull
-            IMAGE_PREFIX="$IMAGE_PREFIX" IMAGE_TAG="$IMAGE_TAG" docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            IMAGE_PREFIX="$IMAGE_PREFIX" IMAGE_TAG="$IMAGE_TAG" docker compose \
+              --project-name insurance-platform \
+              --env-file "$REPO_DIR/.env" \
+              -f "$WORKTREE/docker-compose.prod.yml" pull
+            IMAGE_PREFIX="$IMAGE_PREFIX" IMAGE_TAG="$IMAGE_TAG" docker compose \
+              --project-name insurance-platform \
+              --env-file "$REPO_DIR/.env" \
+              -f "$WORKTREE/docker-compose.prod.yml" up -d --remove-orphans
             docker image prune -f
