@@ -91,7 +91,7 @@
 		<!-- Datenbankmigrationen -->
 		<dependency>
 			<groupId>org.flywaydb</groupId>
-			<artifactId>fflyway-database-postgresqllyway-core</artifactId>
+			<artifactId>flyway-core</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>
