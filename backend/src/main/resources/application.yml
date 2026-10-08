@@ -1,69 +1,15 @@
-spring:
-  application:
-    name: insurance-platform
-  profiles:
-    default: dev
-  datasource:
-    url: jdbc:h2:mem:claimdb
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    open-in-view: false
-
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-
-  flyway:
-    enabled: false
-
-  modulith:
-    events:
-      completion-mode: update
-
 ---
 spring:
   config:
     activate:
-      on-profile: dev
-  jpa:
-    hibernate:
-      ddl-auto: update
-    defer-datasource-initialization: true
-  sql:
-    init:
-      mode: always
-      data-locations: classpath:db/dev-data.sql
-  flyway:
-    enabled: false
-
----
-spring:
-  config:
-    activate:
-      on-profile: local
+      on-profile: prod
   datasource:
-    url: jdbc:postgresql://localhost:5432/insurance
-    username: insurance
-    password: insurance
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
+    open-in-view: false
   flyway:
     enabled: true
-
-springdoc:
-  api-docs:
-    enabled: true
-    path: /v3/api-docs
-  swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-
-server:
-  port: 8080
