@@ -25,6 +25,12 @@ public record ClaimResponse(
         String customerNumber,
 
         @Schema(
+                description = "Anzeigename des Kunden",
+                example = "Max Mustermann"
+        )
+        String customerName,
+
+        @Schema(
                 description = "Typ des Schadenfalls",
                 example = "AUTO"
         )

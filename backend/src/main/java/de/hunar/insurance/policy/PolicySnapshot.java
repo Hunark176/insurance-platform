@@ -8,6 +8,7 @@ public record PolicySnapshot(
         Long id,
         Long customerId,
         String customerNumber,
+        String customerName,
         Long productId,
         LocalDate validFrom,
         LocalDate validTo,

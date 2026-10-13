@@ -95,6 +95,14 @@ npm run dev
 Das Frontend ist unter <http://localhost:5173> erreichbar. Vite leitet
 `/api`-Anfragen an das Backend unter <http://localhost:8080> weiter.
 
+Das Standardprofil `dev` lädt 50 synthetische Kunden mit Policen aus vier
+Versicherungssparten sowie Beispiel-Schadenfällen und Abrechnungen. Namen und
+Versicherungsdaten sind erfunden; alle E-Mail-Adressen verwenden die reservierte
+`.test`-Domain. Diese Daten werden nicht im Produktionsprofil geladen. Wenn das
+Backend mit dem `dev`-Profil läuft, ist die In-Memory-H2-Datenbank außerdem
+lokal über TCP-Port `9123` für IntelliJ Database Tools erreichbar
+(JDBC-URL: `jdbc:h2:tcp://localhost:9123/mem:insurance`).
+
 Für eine persistente lokale PostgreSQL-Umgebung kann stattdessen der Backend-
 und Datenbank-Container gestartet werden:
 

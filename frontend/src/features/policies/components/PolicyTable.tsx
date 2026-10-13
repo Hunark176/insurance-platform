@@ -43,7 +43,7 @@ export function PolicyTable({
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Policen suchen (ID, Kunde, Produkt, Status)..."
+          placeholder="Policen suchen (ID, Kunde, Sparte, Status)..."
           aria-label="Policen durchsuchen"
           className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 lg:w-96"
         />
@@ -85,7 +85,7 @@ export function PolicyTable({
                   </th>
                 ))}
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Kunde / Produkt
+                  Kunde / Versicherung
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Laufzeit
@@ -107,8 +107,10 @@ export function PolicyTable({
                   <td className="whitespace-nowrap px-6 py-4 text-gray-700">
                     {formatCurrency(policy.premium)}
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-gray-700">
-                    Kunde #{policy.customerId} / Produkt #{policy.productId}
+                  <td className="px-6 py-4 text-gray-700">
+                    <div className="font-medium text-gray-900">{policy.customerName}</div>
+                    <div className="text-xs text-gray-500">{policy.customerNumber}</div>
+                    <div className="mt-1 text-sm">{policy.productName}</div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-gray-700">
                     {formatDate(policy.validFrom)} – {formatDate(policy.validTo)}

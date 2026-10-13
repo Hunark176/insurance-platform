@@ -19,8 +19,8 @@ public class ClaimMapper {
     }
 
     public ClaimResponse toResponse(Claim claim, PolicySnapshot policy) {
-        return new ClaimResponse(claim.getId(), policy.id(), policy.customerNumber(), claim.getClaimType().name(),
-                claim.getDescription(), claim.getAmount(), claim.getStatus(), claim.getCreatedAt(),
-                claim.getOccurredOn());
+        return new ClaimResponse(claim.getId(), policy.id(), policy.customerNumber(), policy.customerName(),
+                claim.getClaimType().name(), claim.getDescription(), claim.getAmount(), claim.getStatus(),
+                claim.getCreatedAt(), claim.getOccurredOn());
     }
 }

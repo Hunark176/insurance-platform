@@ -52,9 +52,27 @@ class InsurancePlatformApplicationTests {
 
     @Test
     void devProfileInitializesDemoPoliciesAndClaims() {
+        assertThat(jdbcTemplate.queryForObject("select count(*) from customers", Integer.class))
+                .isEqualTo(50);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from customers where customer_number = 'DEMO-1001'", Integer.class))
                 .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from products", Integer.class))
+                .isEqualTo(5);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from policies", Integer.class))
+                .isEqualTo(65);
+        assertThat(jdbcTemplate.queryForObject("select count(distinct product_id) from policies", Integer.class))
+                .isEqualTo(5);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from invoices", Integer.class))
+                .isEqualTo(65);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from claims", Integer.class))
+                .isEqualTo(27);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from claims c join policies p on p.id = c.policy_id " +
+                        "where c.occurred_on not between p.valid_from and p.valid_to", Integer.class))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject("select count(*) from payouts", Integer.class))
+                .isEqualTo(12);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from products where code = 'DEMO-COMPREHENSIVE'", Integer.class))
                 .isEqualTo(1);
@@ -67,12 +85,21 @@ class InsurancePlatformApplicationTests {
                         "join customers c on c.id = p.customer_id where c.customer_number = 'DEMO-1001'",
                 Integer.class))
                 .isEqualTo(3);
-        assertThat(policyService.findAllResponses()).hasSize(1);
+        assertThat(policyService.findAllResponses())
+                .hasSize(65)
+                .anySatisfy(policy -> {
+                    assertThat(policy.customerName()).isEqualTo("Anna Schneider");
+                    assertThat(policy.customerNumber()).isEqualTo("DEMO-1001");
+                    assertThat(policy.productName()).isEqualTo("Privat-Komfortschutz");
+                });
         assertThat(claimService.getClaimResponses(PageRequest.of(0, 2,
                         Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"))), null)
                         .content())
                 .hasSize(2)
-                .allSatisfy(claim -> assertThat(claim.customerNumber()).isEqualTo("DEMO-1001"));
+                .allSatisfy(claim -> {
+                    assertThat(claim.customerNumber()).isEqualTo("DEMO-1001");
+                    assertThat(claim.customerName()).isEqualTo("Anna Schneider");
+                });
     }
 
     @Test
@@ -87,8 +114,8 @@ class InsurancePlatformApplicationTests {
         var policyClaims = claimService.getClaimResponses(pageable, policyId);
 
         assertThat(allClaims.content()).hasSize(2);
-        assertThat(allClaims.totalElements()).isEqualTo(3);
-        assertThat(allClaims.totalPages()).isEqualTo(2);
+        assertThat(allClaims.totalElements()).isEqualTo(27);
+        assertThat(allClaims.totalPages()).isEqualTo(14);
         assertThat(policyClaims.content()).hasSize(2)
                 .allSatisfy(claim -> assertThat(claim.policyId()).isEqualTo(policyId));
         assertThat(policyClaims.totalElements()).isEqualTo(3);

@@ -107,7 +107,7 @@ export function ClaimTable({
                   </button>
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  Kundennummer
+                  Kunde
                 </th>
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Claim-Typ
@@ -138,8 +138,9 @@ export function ClaimTable({
                   <td className="whitespace-nowrap px-6 py-4">
                     <span className="font-semibold text-gray-900">#{claim.id}</span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <span className="font-medium text-gray-700">{claim.customerNumber}</span>
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-gray-900">{claim.customerName}</div>
+                    <div className="text-xs text-gray-500">{claim.customerNumber}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-200">
