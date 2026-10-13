@@ -1,6 +1,7 @@
 export interface Claim {
   id: number
   customerNumber: string
+  customerName: string
   claimType: string
   amount: number
   occurredOn: string

@@ -1,6 +1,7 @@
 package de.hunar.insurance.policy.application;
 
 import de.hunar.insurance.customer.CustomerApi;
+import de.hunar.insurance.customer.CustomerSummary;
 import de.hunar.insurance.policy.PolicyApi;
 import de.hunar.insurance.policy.PolicySnapshot;
 import de.hunar.insurance.policy.domain.Policy;
@@ -11,6 +12,7 @@ import de.hunar.insurance.policy.dto.PolicyResponse;
 import de.hunar.insurance.policy.events.PolicyIssuedEvent;
 import de.hunar.insurance.policy.mapper.PolicyMapper;
 import de.hunar.insurance.product.ProductApi;
+import de.hunar.insurance.product.ProductSummary;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
@@ -40,9 +42,7 @@ public class PolicyService implements PolicyApi {
     @Transactional
     public PolicyResponse issue(IssuePolicyRequest request) {
         var product = productApi.findById(request.productId());
-        if (!customerApi.exists(request.customerId())) {
-            throw new ResourceNotFoundException("Customer", request.customerId());
-        }
+        var customer = customerApi.findById(request.customerId());
         if (!underwritingApi.canIssue(request.customerId(), request.productId())) {
             throw new DomainException("Policy cannot be issued for the supplied customer and product");
         }
@@ -52,44 +52,62 @@ public class PolicyService implements PolicyApi {
         var policy = repository.save(new Policy(request.customerId(), request.productId(), request.validFrom(),
                 request.validTo(), product.coverageLimit(), product.premium()));
         eventPublisher.publishEvent(new PolicyIssuedEvent(policy.getId(), policy.getCustomerId(), Money.eur(policy.getPremium())));
-        return mapper.toResponse(policy);
+        return mapper.toResponse(policy, customer, product);
     }
 
     @Transactional(readOnly = true)
     public PolicyResponse findByIdResponse(Long id) {
-        return mapper.toResponse(get(id));
+        Policy policy = get(id);
+        return mapper.toResponse(policy, customerApi.findById(policy.getCustomerId()),
+                productApi.findById(policy.getProductId()));
     }
 
     @Transactional(readOnly = true)
     public List<PolicyResponse> findAllResponses() {
-        return repository.findAll().stream().map(mapper::toResponse).toList();
+        List<Policy> policies = repository.findAll();
+        Map<Long, CustomerSummary> customers = policies.stream()
+                .map(Policy::getCustomerId)
+                .distinct()
+                .map(customerApi::findById)
+                .collect(Collectors.toMap(CustomerSummary::id, Function.identity()));
+        Map<Long, ProductSummary> products = policies.stream()
+                .map(Policy::getProductId)
+                .distinct()
+                .map(productApi::findById)
+                .collect(Collectors.toMap(ProductSummary::id, Function.identity()));
+        return policies.stream()
+                .map(policy -> mapper.toResponse(policy, customers.get(policy.getCustomerId()),
+                        products.get(policy.getProductId())))
+                .toList();
     }
 
     @Transactional
     public PolicyResponse cancel(Long id) {
         Policy policy = get(id);
         policy.cancel();
-        return mapper.toResponse(repository.save(policy));
+        Policy cancelledPolicy = repository.save(policy);
+        return mapper.toResponse(cancelledPolicy, customerApi.findById(cancelledPolicy.getCustomerId()),
+                productApi.findById(cancelledPolicy.getProductId()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PolicySnapshot getSnapshot(Long id) {
         Policy policy = get(id);
-        return mapper.toSnapshot(policy, customerApi.findById(policy.getCustomerId()).customerNumber());
+        return mapper.toSnapshot(policy, customerApi.findById(policy.getCustomerId()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PolicySnapshot> getSnapshots(Collection<Long> ids) {
         List<Policy> policies = repository.findAllById(ids);
-        Map<Long, String> customerNumbers = policies.stream()
+        Map<Long, CustomerSummary> customers = policies.stream()
                 .map(Policy::getCustomerId)
                 .distinct()
                 .map(customerApi::findById)
-                .collect(Collectors.toMap(customer -> customer.id(), customer -> customer.customerNumber()));
+                .collect(Collectors.toMap(CustomerSummary::id, Function.identity()));
         return policies.stream()
-                .map(policy -> mapper.toSnapshot(policy, customerNumbers.get(policy.getCustomerId())))
+                .map(policy -> mapper.toSnapshot(policy, customers.get(policy.getCustomerId())))
                 .toList();
     }
 

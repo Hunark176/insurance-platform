@@ -50,7 +50,7 @@ class ClaimServiceTest {
 
     private ClaimService claimService;
     private final LocalDate lossDate = LocalDate.of(2026, 9, 20);
-    private final PolicySnapshot policy = new PolicySnapshot(10L, 20L, "C-20", 30L,
+    private final PolicySnapshot policy = new PolicySnapshot(10L, 20L, "C-20", "Test Customer", 30L,
             lossDate.minusMonths(1), lossDate.plusMonths(1),
             Money.eur(new BigDecimal("100000.00")));
 
@@ -72,7 +72,8 @@ class ClaimServiceTest {
         when(claimMapper.toEntity(request)).thenReturn(claim);
         when(claimRepository.save(claim)).thenReturn(claim);
         when(claimMapper.toResponse(claim, policy)).thenReturn(
-                new ClaimResponse(1L, policy.id(), policy.customerNumber(), "AUTO", request.description(),
+                new ClaimResponse(1L, policy.id(), policy.customerNumber(), policy.customerName(),
+                        "AUTO", request.description(),
                         request.amount(), ClaimStatus.RECEIVED, null, lossDate));
 
         ClaimResponse response = claimService.createClaimResponse(request);
@@ -92,7 +93,8 @@ class ClaimServiceTest {
         when(claimRepository.findByPolicyId(policy.id(), pageable))
                 .thenReturn(new PageImpl<>(List.of(claim), pageable, 5));
         when(policyApi.getSnapshots(List.of(policy.id()))).thenReturn(List.of(policy));
-        ClaimResponse response = new ClaimResponse(7L, policy.id(), policy.customerNumber(), "AUTO", "Loss",
+        ClaimResponse response = new ClaimResponse(7L, policy.id(), policy.customerNumber(), policy.customerName(),
+                "AUTO", "Loss",
                 claim.getAmount(), ClaimStatus.IN_REVIEW, null, lossDate);
         when(claimMapper.toResponse(claim, policy)).thenReturn(response);
 

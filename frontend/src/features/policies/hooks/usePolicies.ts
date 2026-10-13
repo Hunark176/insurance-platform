@@ -49,7 +49,10 @@ export function usePolicies() {
       (policy) =>
         policy.id.toString().includes(searchValue) ||
         policy.customerId.toString().includes(searchValue) ||
+        policy.customerName.toLowerCase().includes(searchValue) ||
+        policy.customerNumber.toLowerCase().includes(searchValue) ||
         policy.productId.toString().includes(searchValue) ||
+        policy.productName.toLowerCase().includes(searchValue) ||
         policy.status.toLowerCase().includes(searchValue),
     )
     .sort((a, b) => {

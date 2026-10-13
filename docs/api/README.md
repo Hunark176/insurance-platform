@@ -17,3 +17,12 @@ The response contains `content` and the pagination metadata `page`, `size`,
 `totalElements`, `totalPages`, `first`, and `last`. Results are ordered by
 creation time and then ID, both descending. `GET /api/claims/{id}` still returns
 a single claim.
+
+Claim responses include both `customerNumber` and `customerName`, resolved from
+the claim's linked policy.
+
+## Policies
+
+Policy responses include the existing `customerId` and `productId` identifiers
+alongside `customerNumber`, `customerName`, and `productName` for readable
+overviews.

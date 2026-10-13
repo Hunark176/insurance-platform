@@ -36,12 +36,15 @@ class PolicyControllerSecurityTest {
     @WithMockUser(username = "clerk", roles = "CLERK")
     void authenticatedUserMayReadAllPolicies() throws Exception {
         when(policyService.findAllResponses()).thenReturn(List.of(
-                new PolicyResponse(1L, 2L, 3L, null, null, null, null, null)));
+                new PolicyResponse(1L, 2L, "C-2", "Test Customer", 3L, "Test Product",
+                        null, null, null, null, null)));
 
         mockMvc.perform(get("/api/policies"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[0].customerId").value(2))
-                .andExpect(jsonPath("$[0].productId").value(3));
+                .andExpect(jsonPath("$[0].customerName").value("Test Customer"))
+                .andExpect(jsonPath("$[0].productId").value(3))
+                .andExpect(jsonPath("$[0].productName").value("Test Product"));
     }
 }

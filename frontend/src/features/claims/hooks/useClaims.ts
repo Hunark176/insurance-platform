@@ -61,6 +61,7 @@ export function useClaims() {
       const searchValue = search.toLowerCase()
 
       return (
+        claim.customerName.toLowerCase().includes(searchValue) ||
         claim.customerNumber.toLowerCase().includes(searchValue) ||
         claim.claimType.toLowerCase().includes(searchValue) ||
         claim.id.toString().includes(searchValue)
