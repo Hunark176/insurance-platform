@@ -98,10 +98,15 @@ Das Frontend ist unter <http://localhost:5173> erreichbar. Vite leitet
 Das Standardprofil `dev` lädt 50 synthetische Kunden mit Policen aus vier
 Versicherungssparten sowie Beispiel-Schadenfällen und Abrechnungen. Namen und
 Versicherungsdaten sind erfunden; alle E-Mail-Adressen verwenden die reservierte
-`.test`-Domain. Diese Daten werden nicht im Produktionsprofil geladen. Wenn das
-Backend mit dem `dev`-Profil läuft, ist die In-Memory-H2-Datenbank außerdem
-lokal über TCP-Port `9123` für IntelliJ Database Tools erreichbar
-(JDBC-URL: `jdbc:h2:tcp://localhost:9123/mem:insurance`).
+`.test`-Domain. Die lokale H2-Datenbank ist flüchtig. Wenn das Backend mit dem
+`dev`-Profil läuft, ist sie über TCP-Port `9123` für IntelliJ Database Tools
+erreichbar (JDBC-URL: `jdbc:h2:tcp://localhost:9123/mem:insurance`).
+
+Im Live-System fügt die Flyway-Migration
+`V10__seed_demo_customers_and_business_data.sql` dieselben synthetischen
+Demo-Kunden samt Policen, Schadenfällen und Abrechnungen hinzu. Die Migration
+ergänzt nur fehlende Demo-Datensätze und ändert oder löscht keine vorhandenen
+Datensätze.
 
 Für eine persistente lokale PostgreSQL-Umgebung kann stattdessen der Backend-
 und Datenbank-Container gestartet werden:
