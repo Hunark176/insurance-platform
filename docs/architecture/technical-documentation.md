@@ -118,16 +118,16 @@ Modulabhängigkeiten und soll unzulässige Zugriffe/Zyklen verhindern.
 | `product`      | Versicherungsprodukte und Angebotsparameter                                | `ProductApi`, `ProductService`, `Product`, Repository/Adapter, Controller/DTOs    |
 | `underwriting` | einfache Ausgabeberechtigung für Kunde und Produkt                         | `UnderwritingApi`, `UnderwritingService`, Entscheidung/DTO, Controller            |
 | `policy`       | Policenausgabe, Laufzeit, Status, Policen-Snapshots                        | `PolicyApi`, `PolicyService`, `Policy`, Repository, Controller/DTOs               |
-| `claim`        | Schadenmeldung, Prüfung, Statuswechsel und Genehmigung                     | `ClaimApi`, `ClaimService`, `Claim`, Repository, Events, Controller/DTOs          |
+| `claim`        | Schadenmeldung, Prüfung, Statuswechsel und Genehmigung                     | `ClaimApi`, `application.ClaimService`, Domainmodell/Repository, Events, Controller/DTOs |
 | `billing`      | Rechnungserzeugung bei Policenausgabe und Auszahlung bei Claim-Genehmigung | Listener, `BillingService`, Invoice-/Payout-Domäne, Controller                    |
 | `shared`       | querschnittliche Web-, Security-, Persistenz- und Domain-Helfer            | Security, Auditing, `Money`, Exception-Handler, Jackson/OpenAPI-Konfiguration     |
 
-Die tatsächliche Schichtung ist nicht in allen Modulen identisch. Customer und
-Product verwenden Repository-Port/Adapter-Dateien; Policy nutzt ein Domain-
-Repository; Claim verwendet eine JPA-Entity (`entity/Claim`) und ein Spring-Data-
-Repository (`repository/ClaimRepository`). Das ist die bestehende Implementierung,
-nicht eine Behauptung, dass jedes Modul bereits eine vollständig isolierte
-Domain-Schicht besitzt.
+Die gemeinsame Orientierung lautet `application`, `domain`, `controller` und
+`dto`; `infrastructure`, `mapper` und `events` kommen hinzu, wenn die jeweilige
+Funktion sie benötigt. Policy und Claim verwenden Spring-Data-Repositories direkt
+in `domain`. Customer und Product haben Ports und Adapter, weil dort eine explizite
+Persistenzgrenze umgesetzt ist. Diese Muster werden nicht durch zusätzliche
+Weiterleitungs-Interfaces vereinheitlicht, wenn dadurch nur Boilerplate entsteht.
 
 ### 4.3 Interne Modul-Schnittstellen
 
@@ -510,8 +510,8 @@ entschieden wurde.
    Ausfall ist nicht als aktiver Mechanismus nachgewiesen.
 6. **Funktionale Abdeckung:** UI und API sind nicht gleich weit ausgebaut;
    insbesondere gibt es keine Oberfläche für zentrale Schreibabläufe und Billing.
-7. **Persistenzkopplung:** Claim verwendet eine JPA-Entity in der fachlichen
-   `entity`-Schicht, während andere Module teils Ports/Adapter verwenden.
+7. **Persistenzkopplung:** Claim und Policy verwenden Spring-Data-Repositories
+   direkt im Domain-Paket; Customer und Product kapseln JPA hinter Ports/Adaptern.
 8. **Compose-Verfügbarkeit:** `service_started` ersetzt keinen Datenbank-
    Healthcheck und bestätigt nicht, dass PostgreSQL Verbindungen annimmt.
 9. **Dokumentationsdrift:** ältere Architekturtexte beschreiben einzelne Module

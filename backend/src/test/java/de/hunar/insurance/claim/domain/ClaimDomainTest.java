@@ -1,4 +1,4 @@
-package de.hunar.insurance.claim.entity;
+package de.hunar.insurance.claim.domain;
 
 import org.junit.jupiter.api.Test;
 

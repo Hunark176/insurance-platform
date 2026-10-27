@@ -1,6 +1,6 @@
 package de.hunar.insurance.claim.dto;
 
-import de.hunar.insurance.claim.entity.ClaimType;
+import de.hunar.insurance.claim.domain.ClaimType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;

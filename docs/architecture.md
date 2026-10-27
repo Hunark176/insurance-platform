@@ -14,10 +14,16 @@ flowchart LR
   claim -- ClaimApprovedEvent --> billing
 ```
 
-Der Claim-zu-Payout-Ablauf ist bewusst einseitig: `ClaimService` publiziert
-`ClaimApprovedEvent`, der Billing-Listener erzeugt idempotent eine Auszahlung.
+Der Claim-zu-Payout-Ablauf ist bewusst einseitig: `claim.application.ClaimService`
+publiziert `ClaimApprovedEvent`, der Billing-Listener erzeugt idempotent eine Auszahlung.
 Die Architekturprüfung in `ModularityTest` verhindert neue Zyklen und Zugriffe
 auf nicht veröffentlichte Modulklassen.
+
+Die Fachmodule verwenden eine pragmatische Schichtung: `application` koordiniert
+Anwendungsfälle, `domain` enthält Fachmodelle und – wo passend – Repositories,
+`controller` bildet den HTTP-Einstieg. Zusätzliche Ports und Adapter werden nur
+eingesetzt, wenn sie eine echte Grenze schützen; reine Weiterleitungs-Schichten
+werden vermieden.
 
 ## Lokale Profile
 
