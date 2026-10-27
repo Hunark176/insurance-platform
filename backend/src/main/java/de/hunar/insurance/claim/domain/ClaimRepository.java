@@ -1,7 +1,5 @@
-package de.hunar.insurance.claim.repository;
+package de.hunar.insurance.claim.domain;
 
-import de.hunar.insurance.claim.entity.Claim;
-import de.hunar.insurance.claim.entity.ClaimStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

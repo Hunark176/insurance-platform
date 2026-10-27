@@ -1,6 +1,6 @@
 package de.hunar.insurance.claim.dto;
 
-import de.hunar.insurance.claim.entity.ClaimStatus;
+import de.hunar.insurance.claim.domain.ClaimStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;

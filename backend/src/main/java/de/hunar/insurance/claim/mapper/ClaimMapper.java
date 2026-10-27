@@ -2,7 +2,7 @@ package de.hunar.insurance.claim.mapper;
 
 import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
-import de.hunar.insurance.claim.entity.Claim;
+import de.hunar.insurance.claim.domain.Claim;
 import de.hunar.insurance.policy.PolicySnapshot;
 import org.springframework.stereotype.Component;
 

@@ -1,7 +1,7 @@
 package de.hunar.insurance.claim.controller;
 
 import de.hunar.insurance.claim.dto.ClaimPageResponse;
-import de.hunar.insurance.claim.service.ClaimService;
+import de.hunar.insurance.claim.application.ClaimService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

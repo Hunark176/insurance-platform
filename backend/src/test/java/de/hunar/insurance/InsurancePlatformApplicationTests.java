@@ -1,11 +1,11 @@
 package de.hunar.insurance;
 
-import de.hunar.insurance.claim.entity.Claim;
-import de.hunar.insurance.claim.entity.ClaimType;
-import de.hunar.insurance.claim.entity.ClaimStatus;
+import de.hunar.insurance.claim.application.ClaimService;
+import de.hunar.insurance.claim.domain.Claim;
+import de.hunar.insurance.claim.domain.ClaimType;
+import de.hunar.insurance.claim.domain.ClaimStatus;
 import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
-import de.hunar.insurance.claim.service.ClaimService;
 import de.hunar.insurance.policy.application.PolicyService;
 import de.hunar.insurance.policy.domain.Policy;
 import de.hunar.insurance.policy.domain.PolicyRepository;
