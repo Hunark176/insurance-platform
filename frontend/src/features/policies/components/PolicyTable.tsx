@@ -64,7 +64,9 @@ export function PolicyTable({
       )}
 
       {loading && (
-        <div className="px-6 py-16 text-center text-sm text-gray-500">Policen werden geladen...</div>
+        <div className="px-6 py-16 text-center text-sm text-gray-500">
+          Policen werden geladen...
+        </div>
       )}
 
       {policies.length > 0 && !loading && (
@@ -79,8 +81,8 @@ export function PolicyTable({
                       onClick={() => onSort(field)}
                       className="text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900"
                     >
-                      {field === 'id' ? 'Policen-ID' : 'Prämie'}
-                      {' '}{sortField === field ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                      {field === 'id' ? 'Policen-ID' : 'Prämie'}{' '}
+                      {sortField === field ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
                     </button>
                   </th>
                 ))}

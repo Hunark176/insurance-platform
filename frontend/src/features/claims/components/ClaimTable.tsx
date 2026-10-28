@@ -41,7 +41,8 @@ export function ClaimTable({
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Schadenfälle</h2>
             <p className="mt-1 text-sm text-gray-500">
-              {filteredClaims.length} von {claims.length} Claims auf dieser Seite · {totalClaims} insgesamt
+              {filteredClaims.length} von {claims.length} Claims auf dieser Seite · {totalClaims}{' '}
+              insgesamt
             </p>
           </div>
 
@@ -148,9 +149,10 @@ export function ClaimTable({
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-gray-700">
-                    {new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeZone: 'UTC' }).format(
-                      new Date(`${claim.occurredOn}T00:00:00Z`),
-                    )}
+                    {new Intl.DateTimeFormat('de-DE', {
+                      dateStyle: 'medium',
+                      timeZone: 'UTC',
+                    }).format(new Date(`${claim.occurredOn}T00:00:00Z`))}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <span className="font-semibold text-gray-900">

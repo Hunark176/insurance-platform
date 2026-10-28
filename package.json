@@ -12,9 +12,5 @@
     "test:backend": "backend\\mvnw.cmd -f backend\\pom.xml test",
     "build:backend": "backend\\mvnw.cmd -f backend\\pom.xml verify"
   },
-  "private": true,
-  "devDependencies": {
-    "@vitejs/plugin-react": "^6.1.1",
-    "vite": "^8.3.1"
-  }
+  "private": true
 }

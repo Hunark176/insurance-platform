@@ -1,9 +1,8 @@
 # Architektur
 
 Die Anwendung ist ein modularer Monolith. Jede Fachdomäne besitzt ein eigenes
-Spring-Modul mit einer kleinen öffentlichen API. Direkte Aufrufe zwischen
-Modulen laufen ausschließlich über `XxxApi`; fachliche Rückmeldungen werden als
-Events veröffentlicht.
+Spring-Modul. Benötigte synchrone Modulaufrufe laufen über veröffentlichte
+`XxxApi`-Verträge; fachliche Rückmeldungen werden als Events veröffentlicht.
 
 ```mermaid
 flowchart LR
@@ -20,10 +19,9 @@ Die Architekturprüfung in `ModularityTest` verhindert neue Zyklen und Zugriffe
 auf nicht veröffentlichte Modulklassen.
 
 Die Fachmodule verwenden eine pragmatische Schichtung: `application` koordiniert
-Anwendungsfälle, `domain` enthält Fachmodelle und – wo passend – Repositories,
-`controller` bildet den HTTP-Einstieg. Zusätzliche Ports und Adapter werden nur
-eingesetzt, wenn sie eine echte Grenze schützen; reine Weiterleitungs-Schichten
-werden vermieden.
+Anwendungsfälle, `domain` enthält Fachmodelle und Spring-Data-Repositories,
+`controller` bildet den HTTP-Einstieg. Unbenutzte Schnittstellen und reine
+Weiterleitungs-Schichten werden vermieden.
 
 ## Lokale Profile
 
