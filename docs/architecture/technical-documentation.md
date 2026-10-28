@@ -114,20 +114,19 @@ Modulabhängigkeiten und soll unzulässige Zugriffe/Zyklen verhindern.
 
 | Modul          | Zuständigkeit                                                              | Hauptbestandteile                                                                 |
 | -------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `customer`     | Kundenstammdaten und Kundenzusammenfassungen                               | `CustomerApi`, `CustomerService`, `Customer`, Repository/Adapter, Controller/DTOs |
-| `product`      | Versicherungsprodukte und Angebotsparameter                                | `ProductApi`, `ProductService`, `Product`, Repository/Adapter, Controller/DTOs    |
+| `customer`     | Kundenstammdaten und Kundenzusammenfassungen                               | `CustomerApi`, `CustomerService`, `Customer`, Repository, Controller/DTOs          |
+| `product`      | Versicherungsprodukte und Angebotsparameter                                | `ProductApi`, `ProductService`, `Product`, Repository, Controller/DTOs             |
 | `underwriting` | einfache Ausgabeberechtigung für Kunde und Produkt                         | `UnderwritingApi`, `UnderwritingService`, Entscheidung/DTO, Controller            |
 | `policy`       | Policenausgabe, Laufzeit, Status, Policen-Snapshots                        | `PolicyApi`, `PolicyService`, `Policy`, Repository, Controller/DTOs               |
-| `claim`        | Schadenmeldung, Prüfung, Statuswechsel und Genehmigung                     | `ClaimApi`, `application.ClaimService`, Domainmodell/Repository, Events, Controller/DTOs |
+| `claim`        | Schadenmeldung, Prüfung, Statuswechsel und Genehmigung                     | `application.ClaimService`, Domainmodell/Repository, Events, Controller/DTOs |
 | `billing`      | Rechnungserzeugung bei Policenausgabe und Auszahlung bei Claim-Genehmigung | Listener, `BillingService`, Invoice-/Payout-Domäne, Controller                    |
 | `shared`       | querschnittliche Web-, Security-, Persistenz- und Domain-Helfer            | Security, Auditing, `Money`, Exception-Handler, Jackson/OpenAPI-Konfiguration     |
 
 Die gemeinsame Orientierung lautet `application`, `domain`, `controller` und
 `dto`; `infrastructure`, `mapper` und `events` kommen hinzu, wenn die jeweilige
-Funktion sie benötigt. Policy und Claim verwenden Spring-Data-Repositories direkt
-in `domain`. Customer und Product haben Ports und Adapter, weil dort eine explizite
-Persistenzgrenze umgesetzt ist. Diese Muster werden nicht durch zusätzliche
-Weiterleitungs-Interfaces vereinheitlicht, wenn dadurch nur Boilerplate entsteht.
+Funktion sie benötigt. Alle Fachmodule verwenden Spring-Data-Repositories direkt
+in `domain`. Repository-Ports und Adapter werden nicht zusätzlich eingeführt,
+solange sie keine tatsächliche technische Grenze oder Mapping-Aufgabe übernehmen.
 
 ### 4.3 Interne Modul-Schnittstellen
 
@@ -137,8 +136,6 @@ Weiterleitungs-Interfaces vereinheitlicht, wenn dadurch nur Boilerplate entsteht
 | `ProductApi`      | Policy und Underwriting → Product     | Produktdaten abrufen und Produktaktivität berücksichtigen                                                                   |
 | `UnderwritingApi` | Policy → Underwriting                 | `canIssue(customerId, productId)`                                                                                           |
 | `PolicyApi`       | Claim → Policy                        | Einzel-/Batch-Snapshots und `isActiveAt(policyId, date)`                                                                    |
-| `ClaimApi`        | fachlicher Vertrag des Claim-Moduls   | `hasOpenClaims(policyId)`; im erfassten Implementierungspfad nicht als Policy-Aufruf nachgewiesen                           |
-| `BillingApi`      | fachlicher Vertrag des Billing-Moduls | Abfrage, ob für einen Claim bereits eine Auszahlung existiert; konkrete Verwendung außerhalb des Moduls ist nicht erkennbar |
 
 Wesentliche, im Code vorhandene Signaturen:
 
@@ -151,8 +148,6 @@ boolean isActiveAt(Long policyId, LocalDate date);
 // Underwriting-Modul
 boolean canIssue(Long customerId, Long productId);
 
-// Claim-Modul
-boolean hasOpenClaims(Long policyId);
 ```
 
 `PolicySnapshot` und die Customer-/Product-Summary-Typen transportieren für
@@ -167,9 +162,6 @@ Deckungsgrenze.
 | ---------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `PolicyIssuedEvent`    | `PolicyService.issue`                     | `PolicyIssuedListener` im Billing prüft auf vorhandene Rechnung und erzeugt andernfalls eine Invoice |
 | `ClaimApprovedEvent`   | `ClaimService.updateClaim` bei `APPROVED` | `ClaimApprovedListener` im Billing legt andernfalls eine Payout an                                   |
-| `ClaimSubmittedEvent`  | im erfassten Pfad kein Publisher gefunden | keine aktive Folgeaktion nachgewiesen                                                                |
-| `ClaimRejectedEvent`   | im erfassten Pfad kein Publisher gefunden | keine aktive Folgeaktion nachgewiesen                                                                |
-| `PolicyCancelledEvent` | im erfassten Pfad kein Publisher gefunden | keine aktive Folgeaktion nachgewiesen                                                                |
 
 Die Listener verwenden Spring Modulith `@ApplicationModuleListener`. Beide
 Billing-Listener prüfen vor dem Einfügen auf ein vorhandenes Objekt; zusätzlich
@@ -510,8 +502,9 @@ entschieden wurde.
    Ausfall ist nicht als aktiver Mechanismus nachgewiesen.
 6. **Funktionale Abdeckung:** UI und API sind nicht gleich weit ausgebaut;
    insbesondere gibt es keine Oberfläche für zentrale Schreibabläufe und Billing.
-7. **Persistenzkopplung:** Claim und Policy verwenden Spring-Data-Repositories
-   direkt im Domain-Paket; Customer und Product kapseln JPA hinter Ports/Adaptern.
+7. **Persistenzkopplung:** Fachmodelle und Spring-Data-Repositories liegen
+   gemeinsam im `domain`-Paket; ein späterer Wechsel zu getrennten Persistenz-
+   Modellen wäre eine bewusste Architekturänderung.
 8. **Compose-Verfügbarkeit:** `service_started` ersetzt keinen Datenbank-
    Healthcheck und bestätigt nicht, dass PostgreSQL Verbindungen annimmt.
 9. **Dokumentationsdrift:** ältere Architekturtexte beschreiben einzelne Module

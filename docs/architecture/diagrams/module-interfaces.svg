@@ -24,7 +24,7 @@
   <text x="755" y="388" text-anchor="middle" class="small">UnderwritingApi</text>
   <rect x="900" y="110" width="220" height="105" class="box" fill="#eff6ff" stroke="#2563eb"/>
   <text x="1010" y="151" text-anchor="middle" class="head">Claim</text>
-  <text x="1010" y="180" text-anchor="middle" class="small">ClaimApi / Claim-Domäne</text>
+  <text x="1010" y="180" text-anchor="middle" class="small">Claim-Anwendungsfälle / Domäne</text>
   <rect x="900" y="505" width="220" height="105" class="box" fill="#fff7ed" stroke="#ea580c"/>
   <text x="1010" y="547" text-anchor="middle" class="head">Billing</text>
   <text x="1010" y="576" text-anchor="middle" class="small">Invoice / Payout</text>

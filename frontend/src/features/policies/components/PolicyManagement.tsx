@@ -23,7 +23,9 @@ export function PolicyManagement() {
         <div className="mb-8 flex flex-col gap-4 text-left sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">Policenverwaltung</h1>
-            <p className="mt-1 text-sm text-gray-500">Übersicht und Verwaltung der Versicherungspolicen</p>
+            <p className="mt-1 text-sm text-gray-500">
+              Übersicht und Verwaltung der Versicherungspolicen
+            </p>
           </div>
           <Button
             className="!rounded-full !px-6 py-2"
