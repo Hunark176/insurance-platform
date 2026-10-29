@@ -1,0 +1,12 @@
+Ja, die vier Punkte sind grundsätzlich sinnvoll – aber zwei brauchen eine wichtige Einordnung zum aktuellen Code:
+
+| Verbesserung | Einschätzung für dieses Projekt |
+|---|---|
+| **Öffentliche Setter** | **Berechtigte Sorge.** `Claim` hat `@Setter`, `@AllArgsConstructor` und `@Builder`; dadurch können auch Status, ID und Zeitstempel beliebig gesetzt werden. Die HTTP-API nimmt zwar ein DTO entgegen und der Service prüft Statuswechsel, aber andere Java-Aufrufer können diese Regeln umgehen. Setter für fachlich kontrollierte Felder sollten eingeschränkt werden. |
+| **Validierung** | **Teilweise bereits abgedeckt.** Der Controller löst mit `@Valid` die Validierung des Request-DTOs aus; der Service prüft zusätzlich wichtige Geschäftsregeln wie Schadendatum, Betrag und Deckung. Die Entity-Annotationen sind nicht automatisch Datenbank-Constraints. Hibernate Validator kann sie bei JPA-Schreibvorgängen zusätzlich prüfen; darauf sollte man sich aber nur verlassen, wenn Konfiguration und Tests das absichern. |
+| **Zeitstempel und UTC** | **Guter Punkt.** `Claim` nutzt `LocalDateTime.now()` direkt und hängt damit von der Zeitzone der JVM ab. Außerdem verwendet der Service `LocalDate.now()` für die Schadendatum-Prüfung. Eine injizierte `Clock` macht Zeitregeln testbar; für technische Audit-Zeitpunkte ist `Instant` eine passende UTC-Basis. Das Projekt hat eine solche `Instant`-/Auditing-Lösung bereits in `AuditableEntity`, aber `Claim` verwendet sie nicht. |
+| **Explizite Statusmethoden** | **Sinnvoll, aber das Beispiel passt nicht unverändert.** Im Projekt heißt der Prüfstatus `IN_REVIEW`, nicht `UNDER_REVIEW`. Eine Domain-Methode könnte unzulässige Statusübergänge verhindern. Die Genehmigung prüft aber außerdem Deckung und Versicherungsschutz über `PolicyApi`; diese anwendungsübergreifende Prüfung muss weiterhin im `ClaimService` bleiben. |
+
+Der **Konkurenzhinweis ist ebenfalls richtig**: `Claim` hat aktuell kein `@Version`. Die gemeinsame `AuditableEntity` besitzt zwar ein Versionsfeld, `Claim` erbt davon aber nicht. Für parallele Bearbeitung – besonders bei Genehmigung und Auszahlung – wäre optimistisches Locking relevant; ein Versionskonflikt sollte dann kontrolliert als Konfliktantwort behandelt werden.
+
+Meine Priorität wäre: **zuerst Statusänderungen und Setter absichern, dann `@Version` für Claims ergänzen, anschließend Zeitbehandlung vereinheitlichen**. Die Validierung ist nicht völlig fehlend, sollte aber durch Tests für HTTP-Requests und Persistenz abgesichert sein.

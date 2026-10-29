@@ -12,7 +12,7 @@ frontend/generated/
 .env
 .env.*
 !.env.example
-
+application/read_file.md
 # IDE
 .idea/
 .vscode/

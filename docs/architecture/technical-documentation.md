@@ -3,15 +3,14 @@
 ## Technische Architektur- und Schnittstellendokumentation
 
 **Dokumenttyp:** System- und Entwicklerdokumentation
-**Erfasst am:** 28. September 2026
-**Geltungsbereich:** Implementierter Code im Repository zum Erfassungszeitpunkt
+**Zuletzt geprüft:** 28. Oktober 2026
+**Geltungsbereich:** Implementierter Code im Repository zum Prüfzeitpunkt
 **Status:** Bestandsaufnahme; nicht automatisch gleichbedeutend mit einem freigegebenen Produktionsdesign
 
-> Die Dokumentation beschreibt den vorhandenen Arbeitsstand. Im Repository gibt es
-> derzeit lokale, noch nicht eingecheckte Änderungen. Architektur- oder Funktionsangaben
-> zu diesen Bereichen beziehen sich deshalb auf den vorgefundenen Arbeitsbaum und
-> können vom letzten Commit abweichen. „Vorhanden“ bedeutet nicht zwangsläufig
-> „produktionsbereit“.
+> Diese Bestandsaufnahme beschreibt den Repository-Stand am Prüfdatum.
+> „Vorhanden“ bedeutet nicht zwangsläufig „produktionsbereit“; insbesondere
+> Authentifizierung, PostgreSQL-Integration und Event-Zuverlässigkeit haben
+> weiterhin dokumentierte Grenzen.
 
 ## 1. Zweck und Leseschlüssel
 
@@ -39,8 +38,9 @@ Die Insurance Platform ist ein **modularer Monolith**: ein Spring-Boot-Prozess
 mit getrennten fachlichen Java-Modulen und einer gemeinsamen relationalen
 Datenbank. Das React-/TypeScript-Frontend wird als separater Web-Client
 entwickelt. Im lokalen Entwicklungsbetrieb leitet Vite `/api`-Aufrufe an das
-Backend weiter. In Docker Compose laufen Backend und PostgreSQL; ein Frontend-
-Container ist dort nicht definiert.
+Backend weiter. Das lokale Compose-Setup umfasst Backend und PostgreSQL; das
+separate Produktions-Compose-Setup ergänzt Caddy als HTTPS-Frontend und Reverse
+Proxy.
 
 Fachlich umfasst der Code Kunden, Produkte, Policen, Underwriting, Schadenfälle
 und Billing. Die wichtigste implementierte Prozesskette lautet:
@@ -83,7 +83,7 @@ und keinen Message Broker.
 | Backend                  | Spring Boot 3.5.6, Spring MVC, Spring Data JPA, Hibernate                                        |
 | Modularchitektur         | Spring Modulith 1.4.4                                                                            |
 | Validierung und Security | Jakarta Bean Validation, Spring Security                                                         |
-| Persistenz               | H2 und PostgreSQL 16 (Compose), Flyway                                                           |
+| Persistenz               | H2; PostgreSQL 16 (lokales Compose) und 15 (Produktion), Flyway                                  |
 | API-Beschreibung         | springdoc-openapi 2.8.13, Swagger UI                                                             |
 | Frontend                 | React 19, TypeScript 6, Vite 8                                                                   |
 | Frontend-Datenzugriff    | Axios; TanStack Query ist Abhängigkeit, wird in den aktuellen Feature-Hooks jedoch nicht genutzt |
@@ -302,8 +302,6 @@ Auszahlung anschließend über die Billing-Route als bezahlt/ausgeführt markier
 
 ## 8. Fachliches Datenmodell und Persistenz
 
-![Fachliches Datenmodell](diagrams/domain-model.svg)
-
 ### 8.1 Entitäten
 
 | Tabelle     | Fachliche Bedeutung             | Wesentliche Daten                                                                                                            |
@@ -311,7 +309,7 @@ Auszahlung anschließend über die Billing-Route als bezahlt/ausgeführt markier
 | `customers` | Versicherungsnehmer/Kundenstamm | eindeutige Kundennummer, Name, eindeutige E-Mail, aktiv                                                                      |
 | `products`  | Produktkatalog                  | eindeutiger Code, Name, Deckungsgrenze, Prämie, aktiv                                                                        |
 | `policies`  | ausgestellte Police             | Kunden-/Produkt-ID, Laufzeit, gespeicherte Deckungsgrenze und Prämie, Status                                                 |
-| `claims`    | Schadenmeldung                  | Kundennummer, Policy-ID, Typ, Beschreibung, Betrag, Status, Erstellungszeit; aktuelle Arbeitsversion zusätzlich Schadendatum |
+| `claims`    | Schadenmeldung                  | Policy-ID, Typ, Beschreibung, Betrag, Status, Schadendatum, Erstellungs-/Änderungszeit |
 | `invoices`  | Rechnung zur Police             | eindeutige Policy-ID, Kunden-ID, Betrag, Währung, Status                                                                     |
 | `payouts`   | Auszahlung zu genehmigtem Claim | eindeutige Claim-ID, Policy-ID, Betrag, Währung, Status                                                                      |
 
@@ -331,11 +329,18 @@ aktuellen Service `Money.eur(...)`.
   aufgelöst, nicht durch JPA-Entity-Graphen zwischen Modulen.
 - Migration `V7__data_integrity.sql` ergänzt Check-Constraints für nichtnegative
   Beträge und `policies.valid_to > policies.valid_from`.
-- Die aktuelle Claim-Entity/Seed-Daten enthalten `occurred_on` und `updated_at`.
-  Diese Spalten werden in der Baseline nicht angelegt; Migration `V8` ergänzt
-  sie und befüllt vorhandene Werte. `customer_number` bleibt als historische
-  Datenbankspalte vorerst erhalten, auch wenn die neue Entity sie nicht mehr
-  verwendet.
+- Die Claim-Entity verwendet `occurred_on` und `updated_at`. Migration `V8`
+  ergänzt diese Felder und befüllt vorhandene Werte; Migration `V9` entfernt
+  `customer_number`, nachdem bestehende Claims sicher einer Police zugeordnet
+  wurden.
+- `V10` ergänzt synthetische Demo-Kunden und Geschäftsdaten. Sie sind keine
+  produktiven Kundendaten.
+- `V11` ergänzt optimistische Versionsfelder für Claims, Policen und Auszahlungen.
+  Statusänderungen erfolgen über fachliche Entity-Methoden; Bean Validation und
+  Constructor-Invarianten schützen persistierte Geschäftsdaten zusätzlich.
+- Claim-Zeitstempel werden über Spring Data Auditing mit einer UTC-Clock gesetzt.
+  Gleichzeitige Änderungen an Claims, Policen und Auszahlungen werden über
+  `@Version` erkannt; ein Konflikt wird als HTTP 409 beantwortet.
 
 ### 8.3 Datenbankprofile und Migrationshinweise
 
@@ -344,12 +349,12 @@ Das Standardprofil `dev` verwendet H2-In-Memory und Hibernate
 geladen. Das `local`-Profil verwendet PostgreSQL, Hibernate `validate` und
 aktiviertes Flyway.
 
-Die ursprünglichen Migrationen `V1` bis `V7` sind bereits Teil der
+Die Migrationen `V1` bis `V11` sind bereits Teil der
 Projektgeschichte. Änderungen an bestehenden Migrationen oder das Umbenennen
 bereits angewandter Versionen können bestehende Datenbanken beschädigen.
 Ergänzungen müssen deshalb mit einer neuen, eindeutigen Flyway-Version erfolgen.
 
-Die Claim-zu-Policy-Änderung wird als additive Migration `V8` geführt. Sie
+Die Claim-zu-Policy-Änderung wird in `V8` geführt. Sie
 verknüpft bestehende Schadenfälle anhand der Kundennummer **nur dann
 automatisch**, wenn genau eine Police zu diesem Kunden gehört. Fehlt der Kunde,
 gibt es keine bzw. mehrere Policen oder widerspricht eine vorhandene
@@ -361,19 +366,22 @@ zu werden.
 
 Für historische Claims ohne tatsächliches Schadendatum wird `occurred_on`
 einmalig aus dem bisherigen `created_at` abgeleitet. Das ist ein dokumentierter
-Fallback, kein Nachweis des echten Schadentags. Die alte Spalte
-`customer_number` wird in `V8` beibehalten, sodass die ursprüngliche Zuordnung
-auch nach Einführung der Policy-Referenz erhalten bleibt. Für eine
-PostgreSQL-Freigabe sind zusätzlich ein Migrationstest mit einer frischen
-Datenbank und Tests für eindeutig, mehrdeutig sowie nicht zuordenbare Altdaten
-erforderlich.
+Fallback, kein Nachweis des echten Schadentags. `V9` entfernt anschließend
+`customer_number`, da die Police die Kundenbeziehung liefert. `V10` lädt
+synthetische Demo-Daten für die Live-Demoumgebung. Die vollständige V1–V10-
+Migration gegen PostgreSQL ist noch nicht durch einen Standard-Integrationstest
+abgesichert und sollte vor einer Freigabe mit einer frischen Datenbank sowie
+repräsentativen eindeutigen, mehrdeutigen und nicht zuordenbaren Altdaten
+getestet werden.
 
 ## 9. Sicherheit und Vertrauensgrenzen
 
-Die Anwendung nutzt HTTP Basic und in-memory definierte Entwicklungsbenutzer
-mit Rollen `CUSTOMER`, `CLERK` und `ADMIN`. Passwörter werden über Spring
+Die Anwendung nutzt HTTP Basic und in-memory definierte Benutzer mit Rollen
+`CUSTOMER`, `CLERK` und `ADMIN`. Passwörter werden über Spring
 `DelegatingPasswordEncoder` kodiert. Diese Einrichtung ist ein
-Entwicklungsmechanismus, keine produktive Identitätsverwaltung.
+Entwicklungsmechanismus, keine produktive Identitätsverwaltung; auch die
+Produktionsbereitstellung konfiguriert derzeit keinen externen
+Identitätsanbieter.
 
 ### 9.1 Autorisierung
 
@@ -430,26 +438,37 @@ docker compose up --build
 Compose setzt `SPRING_PROFILES_ACTIVE=local` für die Anwendung. Damit gelten
 Flyway und PostgreSQL. Migration `V8` schützt die Claim-Daten mit einer
 Prüfung, die fehlende, mehrdeutige oder widersprüchliche Kunden-zu-Police-
-Zuordnungen vor dem Backfill zurückweist. Ein PostgreSQL-Integrationstest mit
-frischer und repräsentativ befüllter Datenbank bleibt vor der Freigabe nötig.
+Zuordnungen vor dem Backfill zurückweist. `V9` entfernt anschließend die
+redundante Kundennummer-Spalte; `V10` ergänzt synthetische Demo-Daten. Die
+vollständige Migration sollte vor einer PostgreSQL-Freigabe automatisiert
+getestet werden.
 
 ### 10.2 Profile und Ports
 
-| Profil           | Datenquelle              | Schemaverwaltung                | Zusatz                           |
-| ---------------- | ------------------------ | ------------------------------- | -------------------------------- |
-| `dev` (Standard) | H2 `jdbc:h2:mem:claimdb` | Hibernate `update`; Flyway aus  | Seed-Daten aus `db/dev-data.sql` |
-| `local`          | PostgreSQL `insurance`   | Flyway an; Hibernate `validate` | lokale/Compose-Konfiguration     |
+| Profil           | Datenquelle              | Schemaverwaltung                | Zusatz                                      |
+| ---------------- | ------------------------ | ------------------------------- | ------------------------------------------- |
+| `dev` (Standard) | H2 `jdbc:h2:mem:claimdb` | Hibernate `update`; Flyway aus  | Seed-Daten aus `db/dev-data.sql`            |
+| `local`          | PostgreSQL `insurance`   | Flyway an; Hibernate `validate` | lokale Compose-/Entwicklerkonfiguration    |
+| `prod`           | PostgreSQL per Env-Variablen | Flyway an; Hibernate `validate` | Produktions-Compose; V10 lädt synthetische Demodaten |
 
 | Dienst        | Port | Hinweis                                      |
 | ------------- | ---: | -------------------------------------------- |
 | Vite-Frontend | 5173 | Development-Server; `/api`-Proxy auf Backend |
 | Spring Boot   | 8080 | REST und OpenAPI                             |
-| PostgreSQL    | 5432 | Compose-Portmapping                          |
+| PostgreSQL    | 5432 | lokales Compose-Portmapping                  |
 
 Das Dockerfile baut ein Backend-JAR in einer Maven-/Temurin-21-Stage und führt
-es in einem Temurin-21-JRE-Image aus. Es erstellt kein Frontend-Image. Compose
-startet die App nach `service_started` der Datenbank; ein Healthcheck-basiertes
-Warten auf PostgreSQL ist nicht konfiguriert.
+es in einem Temurin-21-JRE-Image aus. Das lokale `docker-compose.yml` startet
+die App nach `service_started`; ein Healthcheck-basiertes Warten auf PostgreSQL
+ist dort nicht konfiguriert.
+
+Die separate `docker-compose.prod.yml` definiert PostgreSQL 15, Backend und
+Caddy. Der Backend-Start wartet dort auf `service_healthy`; Caddy stellt den
+HTTPS-Einstieg bereit und leitet zum Backend weiter. Der GitHub-Actions-Deploy-
+Workflow baut und veröffentlicht Backend- und Caddy-Images. Das Frontend wird
+in das Caddy-Image eingebaut; Caddy exponiert die Ports 80 und 443. Die
+Produktionskonfiguration erwartet Domain und Datenbankzugangsdaten aus der
+Laufzeitumgebung.
 
 ### 10.3 Qualitätssicherung im Repository
 
@@ -463,8 +482,9 @@ npm run test:backend
 
 Der Backend-Testbestand enthält unter anderem Anwendungskontext-, Modulgrenzen-,
 Claim-Domain-/Service- und Controller-Security-Tests. `ModularityTest` ist die
-zentrale Architekturprüfung. Die Tests ersetzen keine End-to-End-Prüfung mit
-echtem PostgreSQL und Browser-Authentifizierung.
+zentrale Architekturprüfung. `PostgresContainerSupport` ist ein optionales
+Testfixture, aber kein aktiver Test der Migrationen V1–V10. Die Tests ersetzen
+keine End-to-End-Prüfung mit echtem PostgreSQL und Browser-Authentifizierung.
 
 ## 11. Quellcode-Navigation
 
@@ -488,30 +508,23 @@ Diese Punkte sind wichtige Kontextinformationen für Weiterentwicklung und
 Betrieb; sie sind keine Aussage, dass eine bestimmte Zielarchitektur bereits
 entschieden wurde.
 
-1. **PostgreSQL-Migration testen:** `V8` ist datenbewusst, die vollständige
-   Anwendung gegen frische und bestehende PostgreSQL-Daten muss noch verifiziert
-   werden.
-2. **Claim-Schema:** aktuelle Entity/Seed-Daten und Baseline weichen bei
-   Schadendatum/Audit-Spalten voneinander ab; `V8` ergänzt diese Felder und
-   bewahrt die bisherige `customer_number`-Spalte in der Datenbank.
-3. **Frontend-Authentifizierung:** das UI setzt keine Basic-Auth-Credentials,
+1. **PostgreSQL-Migration testen:** die vollständige V1–V11-Historie und
+   Anwendung gegen frische sowie repräsentativ befüllte PostgreSQL-Daten muss
+   noch automatisiert verifiziert werden.
+2. **Frontend-Authentifizierung:** das UI setzt keine Basic-Auth-Credentials,
    obwohl die API Authentifizierung fordert.
-4. **Autorisierung pro Kunde:** Rollen autorisieren Funktionen, nicht den Zugriff
+3. **Autorisierung pro Kunde:** Rollen autorisieren Funktionen, nicht den Zugriff
    auf die Daten eines bestimmten Kunden.
-5. **Event-Zuverlässigkeit:** eine persistente Outbox bzw. Wiederzustellung bei
+4. **Event-Zuverlässigkeit:** eine persistente Outbox bzw. Wiederzustellung bei
    Ausfall ist nicht als aktiver Mechanismus nachgewiesen.
-6. **Funktionale Abdeckung:** UI und API sind nicht gleich weit ausgebaut;
+5. **Funktionale Abdeckung:** UI und API sind nicht gleich weit ausgebaut;
    insbesondere gibt es keine Oberfläche für zentrale Schreibabläufe und Billing.
-7. **Persistenzkopplung:** Fachmodelle und Spring-Data-Repositories liegen
-   gemeinsam im `domain`-Paket; ein späterer Wechsel zu getrennten Persistenz-
-   Modellen wäre eine bewusste Architekturänderung.
-8. **Compose-Verfügbarkeit:** `service_started` ersetzt keinen Datenbank-
-   Healthcheck und bestätigt nicht, dass PostgreSQL Verbindungen annimmt.
-9. **Dokumentationsdrift:** ältere Architekturtexte beschreiben einzelne Module
-   als reserviert oder den Claim als alleinigen Schwerpunkt. Diese Datei und der
-   aktuelle Code berücksichtigen die inzwischen vorhandenen Module; bei
-   Änderungen sind insbesondere diese Dokumentation, ADRs und OpenAPI
-   gegenzuprüfen.
+6. **Compose-Verfügbarkeit:** Das lokale Compose-Setup wartet nur auf
+   `service_started` und bestätigt nicht, dass PostgreSQL Verbindungen annimmt.
+   Das Produktions-Compose-Setup verwendet einen Healthcheck.
+7. **Produktionsidentität:** Spring Security verwendet In-Memory-Benutzer; ein
+   produktiver Identitätsanbieter und kundenspezifische Datenautorisierung sind
+   nicht implementiert.
 
 ## 13. Zugehörige Dokumente
 
@@ -521,5 +534,5 @@ entschieden wurde.
 - [API-Dokumentation](../api/README.md)
 - [Architekturentscheidungen (ADRs)](../adr/0001-modularer-monolith.md)
 - [Event-/Outbox-Entscheidung](../adr/0002-spring-modulith-events-outbox.md)
-- [Domain-/JPA-Entscheidung](../adr/0003-domain-getrennt-von-jpa.md)
+- [Persistenzzugriff im Fachmodul (ADR 0003)](../adr/0003-persistenzzugriff-im-domain-modul.md)
 - [Claim-Policy-Migrationsentscheidung](../adr/0004-claim-policy-migration.md)

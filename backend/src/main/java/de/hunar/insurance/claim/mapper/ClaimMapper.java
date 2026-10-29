@@ -9,13 +9,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class ClaimMapper {
     public Claim toEntity(CreateClaimRequest request) {
-        Claim claim = new Claim();
-        claim.setPolicyId(request.policyId());
-        claim.setOccurredOn(request.occurredOn());
-        claim.setClaimType(request.claimType());
-        claim.setDescription(request.description());
-        claim.setAmount(request.amount());
-        return claim;
+        return Claim.create(
+                request.policyId(),
+                request.occurredOn(),
+                request.claimType(),
+                request.description(),
+                request.amount()
+        );
     }
 
     public ClaimResponse toResponse(Claim claim, PolicySnapshot policy) {

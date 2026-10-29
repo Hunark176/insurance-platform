@@ -71,11 +71,11 @@ insert into products (code, name, coverage_limit, premium, active)
 select 'RISIKO-LEBEN', 'Risikolebensversicherung', 300000.00, 420.00, true
 where not exists (select 1 from products where code = 'RISIKO-LEBEN');
 
-insert into policies (customer_id, product_id, valid_from, valid_to, coverage_limit, premium, status)
+insert into policies (customer_id, product_id, valid_from, valid_to, coverage_limit, premium, status, version)
 select c.id, p.id,
        current_date - (mod(cast(substring(c.customer_number, 6) as integer), 120) + 165),
        current_date + (200 - mod(cast(substring(c.customer_number, 6) as integer), 120)),
-       p.coverage_limit, p.premium, 'ACTIVE'
+       p.coverage_limit, p.premium, 'ACTIVE', 0
 from customers c
 join products p on p.code = case
     when c.customer_number = 'DEMO-1001' then 'DEMO-COMPREHENSIVE'
@@ -91,8 +91,8 @@ where c.customer_number between 'DEMO-1001' and 'DEMO-1050'
       where existing.customer_id = c.id and existing.product_id = p.id
   );
 
-insert into policies (customer_id, product_id, valid_from, valid_to, coverage_limit, premium, status)
-select c.id, p.id, current_date - 45, current_date + 320, p.coverage_limit, p.premium, 'ACTIVE'
+insert into policies (customer_id, product_id, valid_from, valid_to, coverage_limit, premium, status, version)
+select c.id, p.id, current_date - 45, current_date + 320, p.coverage_limit, p.premium, 'ACTIVE', 0
 from (
     values
         ('DEMO-1002', 'HAUSRAT-PLUS'),
@@ -118,9 +118,9 @@ where not exists (
     where existing.customer_id = c.id and existing.product_id = p.id
 );
 
-insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at)
+insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 5, 'AUTO', 'Auffahrunfall auf der A2', 3200.50, 'RECEIVED',
-       current_timestamp - 5, current_timestamp - 5
+       current_timestamp - 5, current_timestamp - 5, 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -128,9 +128,9 @@ where c.customer_number = 'DEMO-1001'
   and product.code = 'DEMO-COMPREHENSIVE'
   and not exists (select 1 from claims where policy_id = p.id and description = 'Auffahrunfall auf der A2');
 
-insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at)
+insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 3, 'LIABILITY', 'Wasserschaden in der Nachbarwohnung', 850.00, 'IN_REVIEW',
-       current_timestamp - 3, current_timestamp - 2
+       current_timestamp - 3, current_timestamp - 2, 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -138,9 +138,9 @@ where c.customer_number = 'DEMO-1001'
   and product.code = 'DEMO-COMPREHENSIVE'
   and not exists (select 1 from claims where policy_id = p.id and description = 'Wasserschaden in der Nachbarwohnung');
 
-insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at)
+insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 1, 'AUTO', 'Parkschaden auf einem Supermarktparkplatz', 1200.00, 'RECEIVED',
-       current_timestamp - 1, current_timestamp - 1
+       current_timestamp - 1, current_timestamp - 1, 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -148,7 +148,7 @@ where c.customer_number = 'DEMO-1001'
   and product.code = 'DEMO-COMPREHENSIVE'
   and not exists (select 1 from claims where policy_id = p.id and description = 'Parkschaden auf einem Supermarktparkplatz');
 
-insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at)
+insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id,
        current_date - (mod(cast(substring(c.customer_number, 6) as integer), 150) + 15),
        case product.code
@@ -188,7 +188,8 @@ select p.id,
            else 'REJECTED'
        end,
        dateadd('DAY', -(mod(cast(substring(c.customer_number, 6) as integer), 150) + 10), current_timestamp),
-       dateadd('DAY', -(mod(cast(substring(c.customer_number, 6) as integer), 150) + 3), current_timestamp)
+       dateadd('DAY', -(mod(cast(substring(c.customer_number, 6) as integer), 150) + 3), current_timestamp),
+       0
 from customers c
 join products product on product.code = case
     when cast(substring(c.customer_number, 6) as integer) <= 1013 then 'AUTO-KOMFORT'
@@ -227,8 +228,8 @@ select p.id, p.customer_id, p.premium, 'EUR',
 from policies p
 where not exists (select 1 from invoices existing where existing.policy_id = p.id);
 
-insert into payouts (claim_id, policy_id, amount, currency, status)
-select c.id, c.policy_id, c.amount, 'EUR', 'EXECUTED'
+insert into payouts (claim_id, policy_id, amount, currency, status, version)
+select c.id, c.policy_id, c.amount, 'EUR', 'EXECUTED', 0
 from claims c
 where c.status = 'APPROVED'
   and not exists (select 1 from payouts existing where existing.claim_id = c.id);

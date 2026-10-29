@@ -9,6 +9,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
  * changing application bootstrap configuration.
  */
 @Configuration
-@EnableJpaAuditing
+@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
 public class PersistenceConfig {
 }

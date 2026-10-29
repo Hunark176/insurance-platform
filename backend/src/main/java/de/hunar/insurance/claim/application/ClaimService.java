@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
+import java.time.Clock;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +36,7 @@ public class ClaimService {
     private final ApplicationEventPublisher eventPublisher;
     private final PolicyApi policyApi;
     private final ClaimMapper claimMapper;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public ClaimPageResponse getClaimResponses(Pageable pageable, Long policyId) {
@@ -68,7 +70,7 @@ public class ClaimService {
         if (request == null || request.policyId() == null) {
             throw new DomainException("Policy is required to report a claim");
         }
-        if (request.occurredOn() == null || request.occurredOn().isAfter(LocalDate.now())) {
+        if (request.occurredOn() == null || request.occurredOn().isAfter(LocalDate.now(clock))) {
             throw new DomainException("Loss date must be today or in the past");
         }
         if (request.amount() == null || request.amount().signum() <= 0) {
@@ -82,14 +84,13 @@ public class ClaimService {
             throw new DomainException("Policy did not provide coverage on the date of loss");
         }
         Claim claim = claimMapper.toEntity(request);
-        claim.setStatus(ClaimStatus.RECEIVED);
         Claim saved = claimRepository.save(claim);
         return claimMapper.toResponse(saved, policy);
     }
 
     public Claim updateClaim(Long id, ClaimStatus newStatus) {
         Claim claim = getClaimById(id);
-        validateStatusTransition(claim.getStatus(), newStatus);
+        claim.assertCanTransitionTo(newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
             PolicySnapshot policy = policyApi.getSnapshot(claim.getPolicyId());
             if (!policyApi.isActiveAt(claim.getPolicyId(), claim.getOccurredOn())) {
@@ -99,7 +100,7 @@ public class ClaimService {
                 throw new DomainException("Claim amount exceeds the policy coverage limit");
             }
         }
-        claim.setStatus(newStatus);
+        claim.transitionTo(newStatus);
         Claim saved = claimRepository.save(claim);
         if (newStatus == ClaimStatus.APPROVED) {
             eventPublisher.publishEvent(new ClaimApprovedEvent(saved.getId(),
@@ -119,21 +120,6 @@ public class ClaimService {
             throw new ResourceNotFoundException("Claim", id);
         }
         claimRepository.deleteById(id);
-    }
-
-    private void validateStatusTransition(ClaimStatus current, ClaimStatus target) {
-        if (target == null) {
-            throw new DomainException("Claim status is required");
-        }
-        boolean valid = switch (current) {
-            case RECEIVED -> target == ClaimStatus.IN_REVIEW;
-            case IN_REVIEW -> target == ClaimStatus.APPROVED || target == ClaimStatus.REJECTED;
-            case APPROVED, REJECTED -> false;
-        };
-        if (!valid) {
-            throw new IllegalStateException(
-                    "Ungültiger Status-Übergang: " + current + " → " + target);
-        }
     }
 
     private PolicySnapshot requirePolicy(Map<Long, PolicySnapshot> policies, Long policyId) {

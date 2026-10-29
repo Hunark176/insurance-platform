@@ -2,6 +2,7 @@ package de.hunar.insurance;
 
 import de.hunar.insurance.claim.application.ClaimService;
 import de.hunar.insurance.claim.domain.Claim;
+import de.hunar.insurance.claim.domain.ClaimRepository;
 import de.hunar.insurance.claim.domain.ClaimType;
 import de.hunar.insurance.claim.domain.ClaimStatus;
 import de.hunar.insurance.claim.dto.ClaimResponse;
@@ -11,12 +12,16 @@ import de.hunar.insurance.policy.domain.Policy;
 import de.hunar.insurance.policy.domain.PolicyRepository;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.StaleObjectStateException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
@@ -42,6 +47,15 @@ class InsurancePlatformApplicationTests {
 
     @Autowired
     private PolicyRepository policyRepository;
+
+    @Autowired
+    private ClaimRepository claimRepository;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -149,6 +163,65 @@ class InsurancePlatformApplicationTests {
         // Then: Der erlaubte Statuswechsel ist erfolgt
         assertThat(updatedClaim.getStatus())
                 .isEqualTo(ClaimStatus.IN_REVIEW);
+    }
+
+    @Test
+    void claimAuditingUsesUtcClockAndVersionIncrementsOnUpdate() {
+        ClaimResponse created = claimService.createClaimResponse(createTestRequest("Auditing and version test"));
+        entityManager.flush();
+
+        Claim claim = claimRepository.findById(created.id()).orElseThrow();
+        assertThat(claim.getCreatedAt()).isNotNull();
+        assertThat(claim.getUpdatedAt()).isNotNull();
+        assertThat(claim.getUpdatedAt()).isAfterOrEqualTo(claim.getCreatedAt());
+        long initialVersion = claim.getVersion();
+
+        claimService.updateClaim(created.id(), ClaimStatus.IN_REVIEW);
+        entityManager.flush();
+
+        assertThat(claim.getVersion()).isGreaterThan(initialVersion);
+        assertThat(claim.getUpdatedAt()).isAfterOrEqualTo(claim.getCreatedAt());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentClaimUpdatesAreRejectedByOptimisticLocking() {
+        Policy policy = policyRepository.findAll().get(0);
+        Claim claim = claimRepository.saveAndFlush(Claim.create(
+                policy.getId(),
+                LocalDate.now().minusDays(1),
+                ClaimType.AUTO,
+                "Concurrent update test",
+                new BigDecimal("25.00")
+        ));
+
+        EntityManager firstEntityManager = entityManagerFactory.createEntityManager();
+        EntityManager secondEntityManager = entityManagerFactory.createEntityManager();
+        var firstTransaction = firstEntityManager.getTransaction();
+        var secondTransaction = secondEntityManager.getTransaction();
+        try {
+            firstTransaction.begin();
+            secondTransaction.begin();
+            Claim firstCopy = firstEntityManager.find(Claim.class, claim.getId());
+            Claim secondCopy = secondEntityManager.find(Claim.class, claim.getId());
+
+            firstCopy.transitionTo(ClaimStatus.IN_REVIEW);
+            firstEntityManager.flush();
+            firstTransaction.commit();
+
+            secondCopy.transitionTo(ClaimStatus.IN_REVIEW);
+            assertThatThrownBy(secondEntityManager::flush)
+                    .hasRootCauseInstanceOf(StaleObjectStateException.class);
+        } finally {
+            if (firstTransaction.isActive()) {
+                firstTransaction.rollback();
+            }
+            if (secondTransaction.isActive()) {
+                secondTransaction.rollback();
+            }
+            firstEntityManager.close();
+            secondEntityManager.close();
+        }
     }
 
 	@Test

@@ -22,13 +22,17 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +53,7 @@ class ClaimServiceTest {
     private ClaimMapper claimMapper;
 
     private ClaimService claimService;
+    private final Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
     private final LocalDate lossDate = LocalDate.of(2026, 9, 20);
     private final PolicySnapshot policy = new PolicySnapshot(10L, 20L, "C-20", "Test Customer", 30L,
             lossDate.minusMonths(1), lossDate.plusMonths(1),
@@ -56,17 +61,14 @@ class ClaimServiceTest {
 
     @BeforeEach
     void setUp() {
-        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper);
+        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper, clock);
     }
 
     @Test
     void createClaimSetsReceivedAndRequiresMatchingActivePolicy() {
         CreateClaimRequest request = validRequest();
-        Claim claim = new Claim();
-        claim.setPolicyId(policy.id());
-        claim.setOccurredOn(lossDate);
-        claim.setClaimType(request.claimType());
-        claim.setAmount(request.amount());
+        Claim claim = Claim.create(policy.id(), lossDate, request.claimType(),
+                request.description(), request.amount());
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
         when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
         when(claimMapper.toEntity(request)).thenReturn(claim);
@@ -138,6 +140,17 @@ class ClaimServiceTest {
     }
 
     @Test
+    void createClaimRejectsFutureLossDateUsingInjectedClock() {
+        CreateClaimRequest request = new CreateClaimRequest(policy.id(), lossDate.plusDays(10),
+                policy.customerNumber(), ClaimType.AUTO, "Future loss", new BigDecimal("100.00"));
+
+        assertThatThrownBy(() -> claimService.createClaimResponse(request))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("today or in the past");
+        verifyNoInteractions(policyApi, claimRepository);
+    }
+
+    @Test
     void statusTransitionRequiresClaimToExist() {
         when(claimRepository.findById(404L)).thenReturn(Optional.empty());
 
@@ -197,13 +210,9 @@ class ClaimServiceTest {
     }
 
     private Claim reviewClaim(BigDecimal amount) {
-        Claim claim = new Claim();
-        claim.setId(7L);
-        claim.setPolicyId(policy.id());
-        claim.setOccurredOn(lossDate);
-        claim.setClaimType(ClaimType.AUTO);
-        claim.setAmount(amount);
-        claim.setStatus(ClaimStatus.IN_REVIEW);
+        Claim claim = Claim.create(policy.id(), lossDate, ClaimType.AUTO, "Loss", amount);
+        claim.transitionTo(ClaimStatus.IN_REVIEW);
+        ReflectionTestUtils.setField(claim, "id", 7L);
         return claim;
     }
 }
