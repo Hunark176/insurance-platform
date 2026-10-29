@@ -3,7 +3,7 @@
 ## Architektur-Roadmap und technisches Umsetzungs-Backlog
 
 **Dokumenttyp:** Lebende Architektur-Roadmap und priorisiertes Engineering-Backlog
-**Erstellt am:** 28. September 2026
+**Zuletzt aktualisiert:** 28. Oktober 2026
 **Geltungsbereich:** Insurance-Platform-Repository und hier dokumentierter Arbeitsstand
 **Status:** Planungsgrundlage – die offenen Punkte sind keine Aufforderung, sie sofort umzusetzen
 
@@ -149,14 +149,14 @@ vorschnell die technisch aufwendigste Lösung wählen.
 `backend/src/main/resources/application-local.yml`,
 `docker-compose.yml`
 
-**Beobachtung im erfassten Arbeitsstand:** `V2__claim_indexes.sql` und
-`V3__policy_indexes.sql` gehören zur bereits vorhandenen Migrationshistorie.
-Die neuen Claim-Änderungen dürfen deshalb nicht nochmals als V2/V3 angelegt
-werden. Sie werden in einer neuen V8-Migration geführt.
+**Beobachtung am 28.10.2026:** Die Flyway-Historie reicht von V1 bis V10.
+V8 verknüpft bestehende Claims datenbewusst mit Policen, V9 entfernt die nicht
+mehr benötigte `customer_number`-Spalte und V10 ergänzt synthetische Demo-Daten.
+Angewandte Migrationen V1 bis V10 sind unveränderliche Historie.
 
 **Vorsichtiges Vorgehen:**
 
-1. Bestehende Migrationen `V1` bis `V7` nicht umbenennen oder nachträglich
+1. Bestehende Migrationen `V1` bis `V10` nicht umbenennen oder nachträglich
    bearbeiten.
 2. Neue Schemaänderungen nur unter einer noch freien Flyway-Version hinzufügen.
 3. Alte Claims nur anhand der Kundennummer automatisch verbinden, wenn genau
@@ -174,8 +174,8 @@ werden. Sie werden in einer neuen V8-Migration geführt.
   mehrdeutige, fehlende oder widersprüchliche Altdaten ohne sie zu löschen.
 - Legacy-Claim-Typen werden nur über bekannte Zuordnungen konvertiert;
   unbekannte Typen stoppen die Migration.
-- Die historische `customer_number`-Spalte bleibt erhalten, bis eine spätere
-  Entscheidung ihre Entfernung rechtfertigt.
+- V9 entfernt `customer_number` erst nach dem erfolgreichen Backfill der
+  Claim-Policy-Zuordnung.
 - Eine frische PostgreSQL-Datenbank lässt sich vollständig migrieren.
 - `spring.jpa.hibernate.ddl-auto=validate` bestätigt das finale Schema.
 - Wo bestehende Daten relevant sind, funktioniert der Upgrade-Pfad von einer
@@ -188,12 +188,13 @@ werden. Sie werden in einer neuen V8-Migration geführt.
 ### R-02 – Entity-, Seed- und Schemaabgleich
 
 **Priorität:** P1 – zusammen mit R-01
-**Status:** Offen – erst verstehen
+**Status:** Implementiert; PostgreSQL-Integrationstest noch offen
 
-Im erfassten Stand verwenden Claim-Entity und Entwicklungs-Seed unter anderem
-`occurred_on` und `updated_at`; die Baseline definiert diese Spalten nicht
-vollständig. Die neue V8-Migration ergänzt sie für PostgreSQL; Abgleich und
-Integrationstest zwischen H2 und PostgreSQL sind noch offen.
+Claim-Entity und H2-Seed verwenden `occurred_on` und `updated_at`. V8 ergänzt
+diese Spalten für PostgreSQL; V9 entfernt `customer_number` nach dem Backfill.
+Die Migrationen sind implementiert, ein Integrationstest der vollständigen
+V1–V10-Historie mit PostgreSQL ist jedoch noch nicht in der Standardtestsuite
+nachgewiesen.
 
 **Abnahmekriterien:** H2 und PostgreSQL besitzen dieselben fachlich
 erforderlichen Spalten, Nullability und Constraints; Claim-Anlage, Abruf und
@@ -292,28 +293,31 @@ laufen.
 ### R-08 – Repository-Schichten und Modulregeln vereinheitlichen
 
 **Priorität:** P3 – schrittweise, wenn konkrete Änderung es rechtfertigt
-**Status:** Zurückgestellt; kein pauschaler Umbau
+**Status:** Erledigt am 28.10.2026
 
-Customer/Product verwenden Adapter/Ports, Policy nutzt ein Domain-Repository,
-Claim eine JPA-Entity in der `entity`-Schicht und ein Spring-Data-Repository.
-Die Bereiche sind deshalb nicht gleichmäßig von Persistenz getrennt.
+Alle Fachmodule verwenden Spring-Data-Repositories direkt im `domain`-Paket.
+Nicht verwendete Repository-Ports und Weiterleitungsadapter wurden aus Customer,
+Product und Billing entfernt. Die Claim-Anwendungslogik liegt im
+`application`-Paket; leere Platzhalterordner und ungenutzte Verträge/Events sind
+ebenfalls bereinigt. Der Modulith-Test sichert die Modulgrenzen weiterhin ab.
 
-**Abnahmekriterien:** Zuerst mit einem konkreten Wartungs- oder Testproblem
-begründen. Modulzugriffe folgen den veröffentlichten APIs; Domänenregeln sind
-testbar; Änderungen besitzen keine unnötigen Fremdmodul- oder
-Persistenzabhängigkeiten; Modulith-Architekturtests schützen die Regeln.
+**Abnahmekriterien erfüllt:** Entfernte Ports/Adapter und Verträge haben keine
+aktiven Aufrufer; Modulith- und Backend-Tests bestehen. ADR 0003 dokumentiert
+jetzt die direkte Repository-Struktur und deren bewusste Abwägungen.
 
 ### R-09 – Betriebsbereitschaft und Konfigurationsschutz
 
 **Priorität:** P2 vor gemeinsamem/stabilen Deployment; P0 für echte Geheimnisse
-**Status:** Offen – Zielumgebung zuerst klären
+**Status:** Teilweise umgesetzt – lokale und produktive Betriebsdetails weiter prüfen
 **Betroffene Dateien:** `docker-compose.yml`, `Dockerfile`,
 `application*.yml`, CI-Workflow
 
-Im Compose-Setup hängt die Anwendung aktuell von `service_started` ab;
-dies bestätigt nicht, dass PostgreSQL bereits Verbindungen annimmt.
-Lokale Konfiguration enthält Entwicklungswerte. Das Dockerfile baut nur das
-Backend.
+Das lokale `docker-compose.yml` wartet nur auf `service_started`; dies bestätigt
+nicht, dass PostgreSQL Verbindungen annimmt. Das separate
+`docker-compose.prod.yml` wartet auf einen PostgreSQL-Healthcheck und startet
+Backend und Caddy. Der Deploy-Workflow baut und veröffentlicht Backend- und
+Caddy-Images. Die Security-Konfiguration verwendet weiterhin In-Memory-
+Demo-Benutzer und ist keine produktive Identitätsverwaltung.
 
 **Abnahmekriterien:** Geheimnisse stammen aus geeigneter Laufzeitkonfiguration
 und nicht aus Produktions-Defaults; PostgreSQL-Bereitschaft wird zuverlässig
@@ -325,7 +329,7 @@ dokumentiert.
 ### R-10 – Frontend- und Backend-Dokumentation synchron halten
 
 **Priorität:** P3 – fortlaufend
-**Status:** In Arbeit (dieses Roadmap-Dokument)
+**Status:** In Arbeit – Stand 28.10.2026 aktualisiert
 
 **Abnahmekriterien:** Architekturunterlagen beschreiben den tatsächlich
 implementierten Stand; Entscheidungen stehen in ADRs, wenn es mehrere
@@ -351,9 +355,10 @@ Kosten lohnen.
 
 ## 6. Änderungshistorie
 
-| Datum      | Änderung                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------- |
-| 2026-09-28 | Roadmap und Kommunikationsleitplanken erfasst; sichere V8-Backfill-Regel für Claims ergänzt |
+| Datum      | Änderung                                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------- |
+| 2026-09-28 | Roadmap und Kommunikationsleitplanken erfasst; sichere V8-Backfill-Regel für Claims ergänzt               |
+| 2026-10-28 | Vereinheitlichte Paketstruktur, Migrationen bis V10 sowie lokale/produktive Bereitstellung aktualisiert |
 
 ## 7. Verwandte Dokumente und Codepfade
 
@@ -365,6 +370,6 @@ Kosten lohnen.
 - [Kurzübersicht der Modularchitektur](../architecture.md)
 - [ADR: modularer Monolith](../adr/0001-modularer-monolith.md)
 - [ADR: Spring-Modulith-Events und Outbox](../adr/0002-spring-modulith-events-outbox.md)
-- [ADR: Domain getrennt von JPA](../adr/0003-domain-getrennt-von-jpa.md)
+- [ADR: Persistenzzugriff im Fachmodul](../adr/0003-persistenzzugriff-im-domain-modul.md)
 - [Flyway-Migrationen](../../backend/src/main/resources/db/migration/)
 - [Modul-/Architekturtests](../../backend/src/test/java/de/hunar/insurance/)

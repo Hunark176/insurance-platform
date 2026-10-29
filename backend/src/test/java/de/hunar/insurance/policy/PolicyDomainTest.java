@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PolicyDomainTest {
     @Test
@@ -29,5 +30,35 @@ class PolicyDomainTest {
         policy.cancel();
 
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELLED);
+    }
+
+    @Test
+    void cancelledPolicyCannotBeCancelledAgain() {
+        Policy policy = newPolicy();
+        policy.cancel();
+
+        assertThatThrownBy(policy::cancel)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Only an active policy");
+    }
+
+    @Test
+    void policyRejectsInvalidTermAndAmounts() {
+        LocalDate start = LocalDate.of(2026, 1, 1);
+
+        assertThatThrownBy(() -> new Policy(1L, 2L, start, start,
+                BigDecimal.TEN, BigDecimal.ONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("validTo");
+        assertThatThrownBy(() -> new Policy(1L, 2L, start, start.plusDays(1),
+                BigDecimal.ZERO, BigDecimal.ONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("coverageLimit");
+    }
+
+    private Policy newPolicy() {
+        LocalDate start = LocalDate.of(2026, 1, 1);
+        return new Policy(1L, 2L, start, start.plusYears(1),
+                new BigDecimal("100000.00"), new BigDecimal("49.90"));
     }
 }
