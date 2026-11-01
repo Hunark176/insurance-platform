@@ -18,6 +18,7 @@ import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import de.hunar.insurance.underwriting.UnderwritingApi;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PolicyService implements PolicyApi {
     private final PolicyRepository repository;
     private final CustomerApi customerApi;
@@ -51,7 +53,11 @@ public class PolicyService implements PolicyApi {
         }
         var policy = repository.save(new Policy(request.customerId(), request.productId(), request.validFrom(),
                 request.validTo(), product.coverageLimit(), product.premium()));
+        log.info("Policy issued: policyId={} customerId={} productId={}",
+                policy.getId(), policy.getCustomerId(), policy.getProductId());
         eventPublisher.publishEvent(new PolicyIssuedEvent(policy.getId(), policy.getCustomerId(), Money.eur(policy.getPremium())));
+        log.info("Policy issued event published: policyId={} customerId={}",
+                policy.getId(), policy.getCustomerId());
         return mapper.toResponse(policy, customer, product);
     }
 
@@ -84,8 +90,11 @@ public class PolicyService implements PolicyApi {
     @Transactional
     public PolicyResponse cancel(Long id) {
         Policy policy = get(id);
+        PolicyStatus previousStatus = policy.getStatus();
         policy.cancel();
         Policy cancelledPolicy = repository.save(policy);
+        log.info("Policy status changed: policyId={} fromStatus={} toStatus={}",
+                id, previousStatus, cancelledPolicy.getStatus());
         return mapper.toResponse(cancelledPolicy, customerApi.findById(cancelledPolicy.getCustomerId()),
                 productApi.findById(cancelledPolicy.getProductId()));
     }
@@ -115,7 +124,11 @@ public class PolicyService implements PolicyApi {
     @Transactional(readOnly = true)
     public boolean isActiveAt(Long id, LocalDate date) {
         Policy p = get(id);
-        return p.getStatus() == PolicyStatus.ACTIVE && !date.isBefore(p.getValidFrom()) && !date.isAfter(p.getValidTo());
+        boolean active = p.getStatus() == PolicyStatus.ACTIVE
+                && !date.isBefore(p.getValidFrom())
+                && !date.isAfter(p.getValidTo());
+        log.debug("Policy coverage checked: policyId={} date={} active={}", id, date, active);
+        return active;
     }
 
     private Policy get(Long id) {

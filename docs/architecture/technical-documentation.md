@@ -470,7 +470,32 @@ in das Caddy-Image eingebaut; Caddy exponiert die Ports 80 und 443. Die
 Produktionskonfiguration erwartet Domain und Datenbankzugangsdaten aus der
 Laufzeitumgebung.
 
-### 10.3 Qualitätssicherung im Repository
+### 10.3 Anwendungslogging und Fehlerdiagnose
+
+Spring Boot schreibt Logs immer auf die Konsole. In den Profilen `dev` und
+`local` wird zusätzlich `backend/logs/insurance-platform.log` mit Rotation
+geschrieben; `LOG_FILE` kann den Dateipfad überschreiben. Das Profil `prod`
+schreibt standardmäßig nur auf stdout/stderr, damit Containerplattformen die
+Ausgabe einsammeln und zentral speichern können.
+
+API-Aufrufe protokollieren Methode, Pfad, HTTP-Status und Laufzeit. Jeder Aufruf
+erhält eine `X-Request-Id`; dieselbe ID steht im Log und in der HTTP-Antwort.
+Fachliche Schreibaktionen, Statuswechsel, Underwriting-Entscheidungen,
+Modulereignisse und behandelte Fehler werden zusätzlich mit den relevanten
+technischen IDs protokolliert. Request-Bodies, Passwörter, E-Mail-Adressen und
+andere personenbezogene Inhalte werden nicht protokolliert.
+
+Für lokale Entwicklung kann die Datei aus dem Repository-Stamm mit PowerShell
+fortlaufend beobachtet werden:
+
+```powershell
+Get-Content .\backend\logs\insurance-platform.log -Wait -Tail 30
+```
+
+Für Container und Kubernetes sollten Logs über stdout/stderr gesammelt werden;
+lokale Logdateien sind kein dauerhafter oder revisionssicherer Audit-Trail.
+
+### 10.4 Qualitätssicherung im Repository
 
 Vorhandene Root-Skripte:
 
