@@ -2,6 +2,8 @@ package de.hunar.insurance.shared.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
@@ -10,5 +12,6 @@ import org.springframework.context.annotation.Configuration;
         version = "v1",
         description = "Modular monolith insurance domain API"
 ))
+@SecurityScheme(name = "basicAuth", type = SecuritySchemeType.HTTP, scheme = "basic")
 public class OpenApiConfig {
 }

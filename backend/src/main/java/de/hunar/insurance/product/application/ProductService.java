@@ -9,6 +9,7 @@ import de.hunar.insurance.product.dto.ProductResponse;
 import de.hunar.insurance.product.mapper.ProductMapper;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +17,16 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductService implements ProductApi {
     private final ProductRepository repository;
     private final ProductMapper mapper;
 
     @Transactional
     public ProductResponse create(CreateProductRequest r) {
-        return mapper.toResponse(repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium())));
+        Product product = repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium()));
+        log.info("Product created: productId={}", product.getId());
+        return mapper.toResponse(product);
     }
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() { return repository.findAll().stream().map(mapper::toResponse).toList(); }

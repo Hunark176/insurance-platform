@@ -17,3 +17,6 @@ spring:
     init:
       mode: always
       data-locations: classpath:db/dev-data.sql
+logging:
+  file:
+    name: ${LOG_FILE:logs/insurance-platform.log}

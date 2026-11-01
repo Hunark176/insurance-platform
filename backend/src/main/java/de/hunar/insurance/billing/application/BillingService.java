@@ -5,6 +5,7 @@ import de.hunar.insurance.billing.dto.PayoutResponse;
 import de.hunar.insurance.billing.mapper.PayoutMapper;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BillingService {
     private final PayoutRepository payoutRepository;
     private final PayoutMapper mapper;
@@ -25,7 +27,11 @@ public class BillingService {
     public PayoutResponse markPaid(Long id) {
         var payout = payoutRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payout", id));
+        var previousStatus = payout.getStatus();
         payout.markPaid();
-        return mapper.toResponse(payoutRepository.save(payout));
+        var paidPayout = payoutRepository.save(payout);
+        log.info("Payout status changed: payoutId={} claimId={} fromStatus={} toStatus={}",
+                id, paidPayout.getClaimId(), previousStatus, paidPayout.getStatus());
+        return mapper.toResponse(paidPayout);
     }
 }

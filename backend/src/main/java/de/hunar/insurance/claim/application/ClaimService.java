@@ -14,6 +14,7 @@ import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,7 @@ import java.time.Clock;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class ClaimService {
 
@@ -85,11 +87,14 @@ public class ClaimService {
         }
         Claim claim = claimMapper.toEntity(request);
         Claim saved = claimRepository.save(claim);
+        log.info("Claim created: claimId={} policyId={} status={}",
+                saved.getId(), saved.getPolicyId(), saved.getStatus());
         return claimMapper.toResponse(saved, policy);
     }
 
     public Claim updateClaim(Long id, ClaimStatus newStatus) {
         Claim claim = getClaimById(id);
+        ClaimStatus previousStatus = claim.getStatus();
         claim.assertCanTransitionTo(newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
             PolicySnapshot policy = policyApi.getSnapshot(claim.getPolicyId());
@@ -102,10 +107,14 @@ public class ClaimService {
         }
         claim.transitionTo(newStatus);
         Claim saved = claimRepository.save(claim);
+        log.info("Claim status changed: claimId={} policyId={} fromStatus={} toStatus={}",
+                saved.getId(), saved.getPolicyId(), previousStatus, newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
             eventPublisher.publishEvent(new ClaimApprovedEvent(saved.getId(),
                     saved.getPolicyId(),
                     Money.eur(saved.getAmount())));
+            log.info("Claim approved event published: claimId={} policyId={}",
+                    saved.getId(), saved.getPolicyId());
         }
         return saved;
     }
@@ -120,6 +129,7 @@ public class ClaimService {
             throw new ResourceNotFoundException("Claim", id);
         }
         claimRepository.deleteById(id);
+        log.info("Claim deleted: claimId={}", id);
     }
 
     private PolicySnapshot requirePolicy(Map<Long, PolicySnapshot> policies, Long policyId) {

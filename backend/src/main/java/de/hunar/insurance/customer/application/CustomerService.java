@@ -9,6 +9,7 @@ import de.hunar.insurance.customer.dto.CustomerResponse;
 import de.hunar.insurance.customer.mapper.CustomerMapper;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +17,17 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CustomerService implements CustomerApi {
     private final CustomerRepository repository;
     private final CustomerMapper mapper;
 
     @Transactional
     public CustomerResponse create(CreateCustomerRequest request) {
-        return mapper.toResponse(repository.save(new Customer(request.customerNumber(), request.displayName(), request.email())));
+        Customer customer = repository.save(
+                new Customer(request.customerNumber(), request.displayName(), request.email()));
+        log.info("Customer created: customerId={}", customer.getId());
+        return mapper.toResponse(customer);
     }
 
     @Transactional(readOnly = true)
