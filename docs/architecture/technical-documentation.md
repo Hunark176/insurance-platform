@@ -342,6 +342,10 @@ aktuellen Service `Money.eur(...)`.
   Erstellungen, Statuswechsel und Löschungen an. Der Verlauf speichert Actor,
   Zeitpunkt, Korrelations-ID und eine datensparsame Zusammenfassung. Admins können
   Einträge je Entität paginiert über `GET /api/audit-trail` einsehen.
+- Die Baseline `V1` erzwingt bereits höchstens eine Rechnung pro Police über
+  `invoices.policy_id UNIQUE`; `Invoice.policyId` bildet diese Regel ebenfalls
+  im JPA-Mapping ab. Der PostgreSQL-Integrationstest prüft die komplette
+  Flyway-Historie und die Constraint-Verletzung gegen PostgreSQL via Testcontainers.
 - Claim-Zeitstempel werden über Spring Data Auditing mit einer UTC-Clock gesetzt.
   Gleichzeitige Änderungen an Claims, Policen und Auszahlungen werden über
   `@Version` erkannt; ein Konflikt wird als HTTP 409 beantwortet.
@@ -545,9 +549,10 @@ Diese Punkte sind wichtige Kontextinformationen für Weiterentwicklung und
 Betrieb; sie sind keine Aussage, dass eine bestimmte Zielarchitektur bereits
 entschieden wurde.
 
-1. **PostgreSQL-Migration testen:** die vollständige V1–V11-Historie und
-   Anwendung gegen frische sowie repräsentativ befüllte PostgreSQL-Daten muss
-   noch automatisiert verifiziert werden.
+1. **PostgreSQL-Migration erweitern:** die V1–V12-Historie und das Hibernate-
+   Mapping werden automatisiert gegen eine frische PostgreSQL-Datenbank geprüft.
+   Ein Testlauf benötigt Docker; zusätzliche Upgrade-Tests mit repräsentativ
+   befüllten Produktionsdaten sind noch offen.
 2. **Frontend-Authentifizierung:** das UI setzt keine Basic-Auth-Credentials,
    obwohl die API Authentifizierung fordert.
 3. **Autorisierung pro Kunde:** Rollen autorisieren Funktionen, nicht den Zugriff
