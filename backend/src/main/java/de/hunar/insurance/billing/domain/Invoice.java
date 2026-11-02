@@ -25,7 +25,7 @@ public class Invoice {
     private Long id;
     @NotNull
     @Positive
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private Long policyId;
     @NotNull
     @Positive
