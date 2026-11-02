@@ -1,6 +1,7 @@
 package de.hunar.insurance.claim.application;
 
 import de.hunar.insurance.claim.domain.Claim;
+import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.claim.domain.ClaimRepository;
 import de.hunar.insurance.claim.domain.ClaimStatus;
 import de.hunar.insurance.claim.dto.ClaimPageResponse;
@@ -39,6 +40,7 @@ public class ClaimService {
     private final PolicyApi policyApi;
     private final ClaimMapper claimMapper;
     private final Clock clock;
+    private final AuditTrailApi auditTrail;
 
     @Transactional(readOnly = true)
     public ClaimPageResponse getClaimResponses(Pageable pageable, Long policyId) {
@@ -87,6 +89,8 @@ public class ClaimService {
         }
         Claim claim = claimMapper.toEntity(request);
         Claim saved = claimRepository.save(claim);
+        auditTrail.record("CREATED", "CLAIM", saved.getId().toString(), "status=RECEIVED",
+                auditTrail.captureContext());
         log.info("Claim created: claimId={} policyId={} status={}",
                 saved.getId(), saved.getPolicyId(), saved.getStatus());
         return claimMapper.toResponse(saved, policy);
@@ -107,12 +111,15 @@ public class ClaimService {
         }
         claim.transitionTo(newStatus);
         Claim saved = claimRepository.save(claim);
+        auditTrail.record("STATUS_CHANGED", "CLAIM", saved.getId().toString(),
+                "from=" + previousStatus + ",to=" + newStatus, auditTrail.captureContext());
         log.info("Claim status changed: claimId={} policyId={} fromStatus={} toStatus={}",
                 saved.getId(), saved.getPolicyId(), previousStatus, newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
             eventPublisher.publishEvent(new ClaimApprovedEvent(saved.getId(),
                     saved.getPolicyId(),
-                    Money.eur(saved.getAmount())));
+                    Money.eur(saved.getAmount()),
+                    auditTrail.captureContext()));
             log.info("Claim approved event published: claimId={} policyId={}",
                     saved.getId(), saved.getPolicyId());
         }
@@ -129,6 +136,7 @@ public class ClaimService {
             throw new ResourceNotFoundException("Claim", id);
         }
         claimRepository.deleteById(id);
+        auditTrail.record("DELETED", "CLAIM", id.toString(), "claim deleted", auditTrail.captureContext());
         log.info("Claim deleted: claimId={}", id);
     }
 

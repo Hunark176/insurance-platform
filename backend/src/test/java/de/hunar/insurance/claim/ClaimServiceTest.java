@@ -4,6 +4,7 @@ import de.hunar.insurance.claim.dto.ClaimResponse;
 import de.hunar.insurance.claim.dto.ClaimPageResponse;
 import de.hunar.insurance.claim.dto.CreateClaimRequest;
 import de.hunar.insurance.claim.application.ClaimService;
+import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.claim.domain.Claim;
 import de.hunar.insurance.claim.domain.ClaimRepository;
 import de.hunar.insurance.claim.domain.ClaimStatus;
@@ -51,6 +52,8 @@ class ClaimServiceTest {
     private PolicyApi policyApi;
     @Mock
     private ClaimMapper claimMapper;
+    @Mock
+    private AuditTrailApi auditTrail;
 
     private ClaimService claimService;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
@@ -61,7 +64,7 @@ class ClaimServiceTest {
 
     @BeforeEach
     void setUp() {
-        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper, clock);
+        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper, clock, auditTrail);
     }
 
     @Test
@@ -69,6 +72,7 @@ class ClaimServiceTest {
         CreateClaimRequest request = validRequest();
         Claim claim = Claim.create(policy.id(), lossDate, request.claimType(),
                 request.description(), request.amount());
+        ReflectionTestUtils.setField(claim, "id", 1L);
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
         when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
         when(claimMapper.toEntity(request)).thenReturn(claim);

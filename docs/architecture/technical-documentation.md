@@ -338,6 +338,10 @@ aktuellen Service `Money.eur(...)`.
 - `V11` ergänzt optimistische Versionsfelder für Claims, Policen und Auszahlungen.
   Statusänderungen erfolgen über fachliche Entity-Methoden; Bean Validation und
   Constructor-Invarianten schützen persistierte Geschäftsdaten zusätzlich.
+- `V12` legt `audit_entries` als append-only Änderungsverlauf für fachliche
+  Erstellungen, Statuswechsel und Löschungen an. Der Verlauf speichert Actor,
+  Zeitpunkt, Korrelations-ID und eine datensparsame Zusammenfassung. Admins können
+  Einträge je Entität paginiert über `GET /api/audit-trail` einsehen.
 - Claim-Zeitstempel werden über Spring Data Auditing mit einer UTC-Clock gesetzt.
   Gleichzeitige Änderungen an Claims, Policen und Auszahlungen werden über
   `@Version` erkannt; ein Konflikt wird als HTTP 409 beantwortet.
@@ -480,10 +484,18 @@ Ausgabe einsammeln und zentral speichern können.
 
 API-Aufrufe protokollieren Methode, Pfad, HTTP-Status und Laufzeit. Jeder Aufruf
 erhält eine `X-Request-Id`; dieselbe ID steht im Log und in der HTTP-Antwort.
+Das Frontend erzeugt diese ID pro API-Anfrage und protokolliert API-Fehler sowie
+unerwartete UI-Fehler strukturiert in der Browserkonsole; React-Renderfehler
+werden von einer Error Boundary abgefangen.
 Fachliche Schreibaktionen, Statuswechsel, Underwriting-Entscheidungen,
 Modulereignisse und behandelte Fehler werden zusätzlich mit den relevanten
 technischen IDs protokolliert. Request-Bodies, Passwörter, E-Mail-Adressen und
 andere personenbezogene Inhalte werden nicht protokolliert.
+
+Der Audit-Trail ist ein technischer Änderungsverlauf, kein revisionssicheres
+Archiv: Er bietet keine manipulationssichere Speicherung, Signaturen oder
+gesetzliche Aufbewahrungsregeln. Audit-Einträge werden gemeinsam mit der
+Geschäftstransaktion gespeichert; ein Datenbank-Rollback verwirft beide.
 
 Für lokale Entwicklung kann die Datei aus dem Repository-Stamm mit PowerShell
 fortlaufend beobachtet werden:

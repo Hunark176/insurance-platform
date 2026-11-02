@@ -1,5 +1,6 @@
 package de.hunar.insurance.billing.application;
 
+import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.billing.domain.PayoutRepository;
 import de.hunar.insurance.billing.dto.PayoutResponse;
 import de.hunar.insurance.billing.mapper.PayoutMapper;
@@ -17,6 +18,7 @@ import java.util.List;
 public class BillingService {
     private final PayoutRepository payoutRepository;
     private final PayoutMapper mapper;
+    private final AuditTrailApi auditTrail;
 
     @Transactional(readOnly = true)
     public List<PayoutResponse> findAll() {
@@ -30,6 +32,8 @@ public class BillingService {
         var previousStatus = payout.getStatus();
         payout.markPaid();
         var paidPayout = payoutRepository.save(payout);
+        auditTrail.record("STATUS_CHANGED", "PAYOUT", id.toString(),
+                "from=" + previousStatus + ",to=" + paidPayout.getStatus(), auditTrail.captureContext());
         log.info("Payout status changed: payoutId={} claimId={} fromStatus={} toStatus={}",
                 id, paidPayout.getClaimId(), previousStatus, paidPayout.getStatus());
         return mapper.toResponse(paidPayout);

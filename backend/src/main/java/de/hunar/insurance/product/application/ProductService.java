@@ -1,5 +1,6 @@
 package de.hunar.insurance.product.application;
 
+import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.product.ProductApi;
 import de.hunar.insurance.product.ProductSummary;
 import de.hunar.insurance.product.domain.Product;
@@ -21,10 +22,13 @@ import java.util.List;
 public class ProductService implements ProductApi {
     private final ProductRepository repository;
     private final ProductMapper mapper;
+    private final AuditTrailApi auditTrail;
 
     @Transactional
     public ProductResponse create(CreateProductRequest r) {
         Product product = repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium()));
+        auditTrail.record("CREATED", "PRODUCT", product.getId().toString(),
+                "product created", auditTrail.captureContext());
         log.info("Product created: productId={}", product.getId());
         return mapper.toResponse(product);
     }

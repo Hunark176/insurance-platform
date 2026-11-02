@@ -26,8 +26,7 @@ export function useClaims() {
       setTotalClaims(data.totalElements)
       setTotalPages(data.totalPages)
       setMessage('Daten erfolgreich geladen.')
-    } catch (error) {
-      console.error(error)
+    } catch {
       setMessage('Keine Verbindung zum Server möglich.')
     } finally {
       setLoading(false)

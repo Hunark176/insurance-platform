@@ -162,7 +162,12 @@ export function ClaimTable({
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <button
                       type="button"
-                      onClick={() => console.log('Claim:', claim)}
+                      onClick={() =>
+                        console.debug('[InsurancePlatform]', {
+                          event: 'claim.details.requested',
+                          claimId: claim.id,
+                        })
+                      }
                       className="rounded-lg px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
                     >
                       Details →
