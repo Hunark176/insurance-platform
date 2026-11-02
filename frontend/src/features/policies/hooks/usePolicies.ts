@@ -19,8 +19,7 @@ export function usePolicies() {
       setMessage('')
       setPolicies(await fetchPolicies())
       setMessage('Policen erfolgreich geladen.')
-    } catch (error) {
-      console.error(error)
+    } catch {
       setMessage('Policen konnten nicht geladen werden.')
     } finally {
       setLoading(false)

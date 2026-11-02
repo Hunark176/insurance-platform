@@ -1,5 +1,6 @@
 package de.hunar.insurance.customer.application;
 
+import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.customer.CustomerApi;
 import de.hunar.insurance.customer.CustomerSummary;
 import de.hunar.insurance.customer.domain.Customer;
@@ -21,11 +22,14 @@ import java.util.List;
 public class CustomerService implements CustomerApi {
     private final CustomerRepository repository;
     private final CustomerMapper mapper;
+    private final AuditTrailApi auditTrail;
 
     @Transactional
     public CustomerResponse create(CreateCustomerRequest request) {
         Customer customer = repository.save(
                 new Customer(request.customerNumber(), request.displayName(), request.email()));
+        auditTrail.record("CREATED", "CUSTOMER", customer.getId().toString(),
+                "customer created", auditTrail.captureContext());
         log.info("Customer created: customerId={}", customer.getId());
         return mapper.toResponse(customer);
     }

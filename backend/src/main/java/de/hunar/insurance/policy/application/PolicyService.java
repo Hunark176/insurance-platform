@@ -1,5 +1,7 @@
 package de.hunar.insurance.policy.application;
 
+import de.hunar.insurance.audit.AuditTrailApi;
+import de.hunar.insurance.audit.AuditContext;
 import de.hunar.insurance.customer.CustomerApi;
 import de.hunar.insurance.customer.CustomerSummary;
 import de.hunar.insurance.policy.PolicyApi;
@@ -40,6 +42,7 @@ public class PolicyService implements PolicyApi {
     private final UnderwritingApi underwritingApi;
     private final PolicyMapper mapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuditTrailApi auditTrail;
 
     @Transactional
     public PolicyResponse issue(IssuePolicyRequest request) {
@@ -53,9 +56,12 @@ public class PolicyService implements PolicyApi {
         }
         var policy = repository.save(new Policy(request.customerId(), request.productId(), request.validFrom(),
                 request.validTo(), product.coverageLimit(), product.premium()));
+        AuditContext context = auditTrail.captureContext();
+        auditTrail.record("CREATED", "POLICY", policy.getId().toString(), "status=ACTIVE", context);
         log.info("Policy issued: policyId={} customerId={} productId={}",
                 policy.getId(), policy.getCustomerId(), policy.getProductId());
-        eventPublisher.publishEvent(new PolicyIssuedEvent(policy.getId(), policy.getCustomerId(), Money.eur(policy.getPremium())));
+        eventPublisher.publishEvent(new PolicyIssuedEvent(
+                policy.getId(), policy.getCustomerId(), Money.eur(policy.getPremium()), context));
         log.info("Policy issued event published: policyId={} customerId={}",
                 policy.getId(), policy.getCustomerId());
         return mapper.toResponse(policy, customer, product);
@@ -93,6 +99,8 @@ public class PolicyService implements PolicyApi {
         PolicyStatus previousStatus = policy.getStatus();
         policy.cancel();
         Policy cancelledPolicy = repository.save(policy);
+        auditTrail.record("STATUS_CHANGED", "POLICY", id.toString(),
+                "from=" + previousStatus + ",to=" + cancelledPolicy.getStatus(), auditTrail.captureContext());
         log.info("Policy status changed: policyId={} fromStatus={} toStatus={}",
                 id, previousStatus, cancelledPolicy.getStatus());
         return mapper.toResponse(cancelledPolicy, customerApi.findById(cancelledPolicy.getCustomerId()),

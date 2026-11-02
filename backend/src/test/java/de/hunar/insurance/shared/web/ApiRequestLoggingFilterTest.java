@@ -32,4 +32,16 @@ class ApiRequestLoggingFilterTest {
 
         assertThat(response.getHeader("X-Request-Id")).isNull();
     }
+
+    @Test
+    void preservesValidFrontendRequestId() throws Exception {
+        String requestId = "7c78c775-3988-4ed1-984e-cf8bf847e14a";
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/check");
+        request.addHeader("X-Request-Id", requestId);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (servletRequest, servletResponse) -> {});
+
+        assertThat(response.getHeader("X-Request-Id")).isEqualTo(requestId);
+    }
 }

@@ -30,8 +30,10 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
             return;
         }
 
-        String requestId = UUID.randomUUID().toString();
+        String requestId = validRequestId(request.getHeader(REQUEST_ID_HEADER))
+                .orElseGet(() -> UUID.randomUUID().toString());
         long startTime = System.nanoTime();
+        String previousRequestId = MDC.get("requestId");
         MDC.put("requestId", requestId);
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
@@ -54,7 +56,25 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
                 log.info("API request completed: method={} path={} status={} durationMs={}",
                         request.getMethod(), request.getRequestURI(), status, durationMs);
             }
-            MDC.remove("requestId");
+            if (previousRequestId == null) {
+                MDC.remove("requestId");
+            } else {
+                MDC.put("requestId", previousRequestId);
+            }
+        }
+    }
+
+    private java.util.Optional<String> validRequestId(String value) {
+        if (value == null || value.length() != 36) {
+            return java.util.Optional.empty();
+        }
+        try {
+            String canonical = UUID.fromString(value).toString();
+            return canonical.equalsIgnoreCase(value)
+                    ? java.util.Optional.of(canonical)
+                    : java.util.Optional.empty();
+        } catch (IllegalArgumentException exception) {
+            return java.util.Optional.empty();
         }
     }
 }
