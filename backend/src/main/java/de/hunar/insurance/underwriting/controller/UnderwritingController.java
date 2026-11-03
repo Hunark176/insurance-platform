@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Exposes the clerk- and administrator-only policy eligibility check.
+ */
 @RestController
 @RequestMapping("/api/underwriting")
 @SecurityRequirement(name = "basicAuth")
@@ -16,6 +19,12 @@ import org.springframework.web.bind.annotation.*;
 public class UnderwritingController {
     private final UnderwritingService service;
 
+    /**
+     * Evaluates whether a customer and product combination is eligible for policy issuance.
+     *
+     * @param request customer and product identifiers
+     * @return eligibility outcome and explanatory reason
+     */
     @PostMapping("/check")
     @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public UnderwritingCheckResponse check(@Valid @RequestBody UnderwritingCheckRequest request) {

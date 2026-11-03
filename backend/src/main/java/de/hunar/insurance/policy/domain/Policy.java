@@ -14,6 +14,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Objects;
 
+/**
+ * Represents coverage issued to a customer for a product over a fixed date range.
+ *
+ * <p>The term is exclusive at the end: {@code validTo} must be after {@code validFrom}.
+ * Updates are protected from lost writes by optimistic locking.</p>
+ */
 @Entity
 @Table(name = "policies")
 @Getter
@@ -55,6 +61,18 @@ public class Policy {
     @Column(nullable = false)
     private long version;
 
+    /**
+     * Creates a policy in the active state.
+     *
+     * @param customerId customer receiving the coverage
+     * @param productId product whose terms are copied to the policy
+     * @param validFrom first date of the policy term
+     * @param validTo exclusive end date of the policy term
+     * @param coverageLimit maximum covered amount
+     * @param premium policy premium
+     * @throws NullPointerException if a required value is {@code null}
+     * @throws IllegalArgumentException if identifiers, dates, or monetary values are invalid
+     */
     public Policy(Long customerId, Long productId, LocalDate validFrom, LocalDate validTo,
                   BigDecimal coverageLimit, BigDecimal premium) {
         this.customerId = requirePositiveId(customerId, "customerId");
@@ -69,11 +87,21 @@ public class Policy {
         this.status = PolicyStatus.ACTIVE;
     }
 
+    /**
+     * Reports whether this policy has a valid, non-empty coverage term.
+     *
+     * @return {@code true} when both dates are present and {@code validTo} is after {@code validFrom}
+     */
     @AssertTrue(message = "validTo must be after validFrom")
     public boolean isValidTerm() {
         return validFrom != null && validTo != null && validTo.isAfter(validFrom);
     }
 
+    /**
+     * Cancels an active policy.
+     *
+     * @throws IllegalStateException if the policy is not active
+     */
     public void cancel() {
         if (status != PolicyStatus.ACTIVE) {
             throw new IllegalStateException("Only an active policy can be cancelled");

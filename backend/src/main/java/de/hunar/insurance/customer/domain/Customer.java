@@ -8,6 +8,11 @@ import lombok.Getter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+/**
+ * Stores the customer identity and contact details used by the insurance modules.
+ *
+ * <p>Customer number and email are unique at the persistence layer.</p>
+ */
 @Entity
 @Table(name = "customers")
 @Getter
@@ -32,6 +37,14 @@ public class Customer {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Creates an active customer after checking required text values and their maximum lengths.
+     *
+     * @param customerNumber unique customer reference
+     * @param displayName customer name shown to users
+     * @param email customer email address
+     * @throws IllegalArgumentException if a value is blank or exceeds its allowed length
+     */
     public Customer(String customerNumber, String displayName, String email) {
         this.customerNumber = requireText(customerNumber, "customerNumber", 50);
         this.displayName = requireText(displayName, "displayName", 200);

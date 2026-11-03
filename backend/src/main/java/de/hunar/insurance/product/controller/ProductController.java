@@ -11,15 +11,35 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Exposes authenticated product catalog reads and role-protected product creation.
+ */
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
     private final ProductService service;
+    /**
+     * Lists all products in the catalog.
+     *
+     * @return all product responses
+     */
     @GetMapping @PreAuthorize("isAuthenticated()")
     public List<ProductResponse> findAll() { return service.findAll(); }
+    /**
+     * Creates a product from validated product details.
+     *
+     * @param request product details
+     * @return the created product
+     */
     @PostMapping @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public ProductResponse create(@Valid @RequestBody CreateProductRequest request) { return service.create(request); }
+    /**
+     * Retrieves a product by identifier.
+     *
+     * @param id product identifier
+     * @return the product details
+     */
     @GetMapping("/{id}") @PreAuthorize("isAuthenticated()")
     public ProductResponse findById(@PathVariable Long id) {
         var p = service.findById(id);

@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+/**
+ * Defines an insurance product and the default coverage limit and premium copied to new policies.
+ */
 @Entity
 @Table(name = "products")
 @Getter
@@ -41,6 +44,15 @@ public class Product {
     @Column(nullable = false)
     private boolean active = true;
 
+    /**
+     * Creates an active product with validated identifiers and monetary terms.
+     *
+     * @param code unique product code
+     * @param name display name
+     * @param coverageLimit positive maximum covered amount
+     * @param premium non-negative premium
+     * @throws IllegalArgumentException if text or monetary values violate product invariants
+     */
     public Product(String code, String name, BigDecimal coverageLimit, BigDecimal premium) {
         this.code = requireText(code, "code", 50);
         this.name = requireText(name, "name", 200);

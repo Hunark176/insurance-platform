@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Exposes administrator-only, paginated audit history queries.
+ */
 @RestController
 @RequestMapping("/api/audit-trail")
 @SecurityRequirement(name = "basicAuth")
@@ -23,6 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuditTrailController {
     private final AuditTrailService service;
 
+    /**
+     * Returns the newest audit entries for a single entity.
+     *
+     * @param entityType entity type, normalized to uppercase
+     * @param entityId entity identifier
+     * @param page zero-based page index
+     * @param size page size from 1 to 100
+     * @return paginated audit entries ordered by occurrence time descending
+     */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public Page<AuditEntryResponse> findForEntity(

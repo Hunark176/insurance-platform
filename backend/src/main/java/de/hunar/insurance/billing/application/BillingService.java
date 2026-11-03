@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Provides billing read operations and controlled payout status transitions.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -20,11 +23,24 @@ public class BillingService {
     private final PayoutMapper mapper;
     private final AuditTrailApi auditTrail;
 
+    /**
+     * Lists payouts for staff billing workflows.
+     *
+     * @return all payout responses
+     */
     @Transactional(readOnly = true)
     public List<PayoutResponse> findAll() {
         return payoutRepository.findAll().stream().map(mapper::toResponse).toList();
     }
 
+    /**
+     * Marks a newly created payout as executed and records the status transition.
+     *
+     * @param id payout identifier
+     * @return the updated payout response
+     * @throws ResourceNotFoundException if the payout does not exist
+     * @throws IllegalStateException if the payout is not in the {@code CREATED} state
+     */
     @Transactional
     public PayoutResponse markPaid(Long id) {
         var payout = payoutRepository.findById(id)

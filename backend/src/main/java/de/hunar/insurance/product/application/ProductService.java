@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Implements product catalog use cases and supplies product summaries to other modules.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,6 +27,12 @@ public class ProductService implements ProductApi {
     private final ProductMapper mapper;
     private final AuditTrailApi auditTrail;
 
+    /**
+     * Creates a product, records the creation, and returns its API representation.
+     *
+     * @param request validated product details and terms
+     * @return the newly created product
+     */
     @Transactional
     public ProductResponse create(CreateProductRequest r) {
         Product product = repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium()));
@@ -32,12 +41,32 @@ public class ProductService implements ProductApi {
         log.info("Product created: productId={}", product.getId());
         return mapper.toResponse(product);
     }
+    /**
+     * Lists all products.
+     *
+     * @return all product responses
+     */
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() { return repository.findAll().stream().map(mapper::toResponse).toList(); }
-    @Override @Transactional(readOnly = true)
+    /**
+     * Retrieves product details for the product-module API.
+     *
+     * @param id product identifier
+     * @return product summary
+     * @throws ResourceNotFoundException if the product does not exist
+     */
+    @Override
+    @Transactional(readOnly = true)
     public ProductSummary findById(Long id) {
         return mapper.toSummary(repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id)));
     }
-    @Override @Transactional(readOnly = true)
+    /**
+     * Checks whether a product exists.
+     *
+     * @param id product identifier
+     * @return whether the product exists
+     */
+    @Override
+    @Transactional(readOnly = true)
     public boolean exists(Long id) { return repository.existsById(id); }
 }

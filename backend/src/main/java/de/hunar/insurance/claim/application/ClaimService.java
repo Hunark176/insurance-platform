@@ -29,6 +29,12 @@ import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.Clock;
 
+/**
+ * Coordinates claim use cases and their policy checks, persistence, audit records, and domain events.
+ *
+ * <p>Policy-specific business data is obtained through {@link PolicyApi}; this service does not
+ * access policy persistence directly.</p>
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -42,6 +48,14 @@ public class ClaimService {
     private final Clock clock;
     private final AuditTrailApi auditTrail;
 
+    /**
+     * Returns a page of claims enriched with the corresponding policy snapshots.
+     *
+     * @param pageable requested page and sort order
+     * @param policyId optional policy filter; {@code null} returns claims for all policies
+     * @return the requested page with paging metadata
+     * @throws ResourceNotFoundException if a claim refers to a policy that cannot be resolved
+     */
     @Transactional(readOnly = true)
     public ClaimPageResponse getClaimResponses(Pageable pageable, Long policyId) {
         Page<Claim> claimPage = policyId == null
@@ -58,18 +72,40 @@ public class ClaimService {
                 claimPage.getTotalElements(), claimPage.getTotalPages(), claimPage.isFirst(), claimPage.isLast());
     }
 
+    /**
+     * Loads a claim by its identifier.
+     *
+     * @param id claim identifier
+     * @return the persisted claim
+     * @throws ResourceNotFoundException if no claim has the given identifier
+     */
     @Transactional(readOnly = true)
     public Claim getClaimById(Long id) {
         return claimRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", id));
     }
 
+    /**
+     * Loads a claim and maps it to the API response using its policy snapshot.
+     *
+     * @param id claim identifier
+     * @return the claim response
+     * @throws ResourceNotFoundException if the claim or its policy cannot be found
+     */
     @Transactional(readOnly = true)
     public ClaimResponse getClaimResponse(Long id) {
         Claim claim = getClaimById(id);
         return claimMapper.toResponse(claim, policyApi.getSnapshot(claim.getPolicyId()));
     }
 
+    /**
+     * Validates coverage and customer ownership before creating and auditing a claim.
+     *
+     * @param request validated claim input
+     * @return response containing the newly persisted claim
+     * @throws DomainException if the request violates claim or policy business rules
+     * @throws ResourceNotFoundException if the referenced policy cannot be found
+     */
     public ClaimResponse createClaimResponse(CreateClaimRequest request) {
         if (request == null || request.policyId() == null) {
             throw new DomainException("Policy is required to report a claim");
@@ -96,6 +132,19 @@ public class ClaimService {
         return claimMapper.toResponse(saved, policy);
     }
 
+    /**
+     * Changes a claim's status and publishes a claim-approved event when appropriate.
+     *
+     * <p>Approval additionally requires active coverage on the loss date and an amount
+     * within the policy coverage limit.</p>
+     *
+     * @param id claim identifier
+     * @param newStatus requested status
+     * @return the updated persisted claim
+     * @throws ResourceNotFoundException if the claim or its policy cannot be found
+     * @throws DomainException if approval violates policy coverage rules
+     * @throws IllegalStateException if the requested status transition is not allowed
+     */
     public Claim updateClaim(Long id, ClaimStatus newStatus) {
         Claim claim = getClaimById(id);
         ClaimStatus previousStatus = claim.getStatus();
@@ -126,11 +175,27 @@ public class ClaimService {
         return saved;
     }
 
+    /**
+     * Updates a claim status and returns the mapped API representation.
+     *
+     * @param id claim identifier
+     * @param newStatus requested status
+     * @return the updated claim response
+     * @throws ResourceNotFoundException if the claim or its policy cannot be found
+     * @throws DomainException if a business rule rejects the update
+     * @throws IllegalStateException if the requested status transition is not allowed
+     */
     public ClaimResponse updateClaimResponse(Long id, ClaimStatus newStatus) {
         Claim claim = updateClaim(id, newStatus);
         return claimMapper.toResponse(claim, policyApi.getSnapshot(claim.getPolicyId()));
     }
 
+    /**
+     * Deletes an existing claim and records the deletion in the audit trail.
+     *
+     * @param id identifier of the claim to delete
+     * @throws ResourceNotFoundException if no claim has the given identifier
+     */
     public void deleteClaim(Long id) {
         if (!claimRepository.existsById(id)) {
             throw new ResourceNotFoundException("Claim", id);

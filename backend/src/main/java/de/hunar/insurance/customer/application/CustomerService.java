@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Implements customer use cases and exposes customer summaries to collaborating modules.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,6 +27,12 @@ public class CustomerService implements CustomerApi {
     private final CustomerMapper mapper;
     private final AuditTrailApi auditTrail;
 
+    /**
+     * Creates a customer, records the business action, and returns its API representation.
+     *
+     * @param request validated customer details
+     * @return the newly created customer
+     */
     @Transactional
     public CustomerResponse create(CreateCustomerRequest request) {
         Customer customer = repository.save(
@@ -34,17 +43,36 @@ public class CustomerService implements CustomerApi {
         return mapper.toResponse(customer);
     }
 
+    /**
+     * Lists all customers for authorized staff workflows.
+     *
+     * @return all customer responses
+     */
     @Transactional(readOnly = true)
     public List<CustomerResponse> findAll() {
         return repository.findAll().stream().map(mapper::toResponse).toList();
     }
 
+    /**
+     * Resolves the customer-module contract by persistent identifier.
+     *
+     * @param id customer identifier
+     * @return minimal customer summary
+     * @throws ResourceNotFoundException if no customer has the given identifier
+     */
     @Override
     @Transactional(readOnly = true)
     public CustomerSummary findById(Long id) {
         return mapper.toSummary(repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Customer", id)));
     }
 
+    /**
+     * Resolves the customer-module contract by customer number.
+     *
+     * @param number customer number
+     * @return minimal customer summary
+     * @throws ResourceNotFoundException if no customer has the given number
+     */
     @Override
     @Transactional(readOnly = true)
     public CustomerSummary findByNumber(String number) {
@@ -52,6 +80,12 @@ public class CustomerService implements CustomerApi {
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", number)));
     }
 
+    /**
+     * Checks customer existence without loading the complete customer record.
+     *
+     * @param id customer identifier
+     * @return whether the customer exists
+     */
     @Override
     @Transactional(readOnly = true)
     public boolean exists(Long id) {

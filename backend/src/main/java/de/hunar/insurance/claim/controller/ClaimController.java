@@ -22,6 +22,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Exposes authenticated claim queries and role-protected claim lifecycle operations.
+ */
 @RestController
 @RequestMapping("/api/claims")
 @CrossOrigin(origins = "http://localhost:5173")
@@ -31,6 +34,14 @@ public class ClaimController {
 
     private final ClaimService claimService;
 
+    /**
+     * Returns claims ordered by creation time and identifier, with optional policy filtering.
+     *
+     * @param page zero-based page index
+     * @param size page size from 1 to 100
+     * @param policyId optional policy identifier
+     * @return the requested page of claims
+     */
     @GetMapping
     @Operation(summary = "Paginierte Claim-Übersicht laden")
     @ApiResponse(responseCode = "200", description = "Paginierte Claim-Übersicht erfolgreich geladen")
@@ -47,6 +58,12 @@ public class ClaimController {
         return claimService.getClaimResponses(PageRequest.of(page, size, sort), policyId);
     }
 
+    /**
+     * Retrieves a claim and its policy details.
+     *
+     * @param id claim identifier
+     * @return claim and associated policy details
+     */
     @GetMapping("/{id}")
     @Operation(summary = "Claim nach ID suchen")
     @ApiResponses({
@@ -61,6 +78,12 @@ public class ClaimController {
         return claimService.getClaimResponse(id);
     }
 
+    /**
+     * Reports a claim after validating the submitted request.
+     *
+     * @param request claim details
+     * @return the created claim
+     */
     @PostMapping
     @Operation(summary = "Neuen Claim erstellen")
     @ApiResponse(responseCode = "201", description = "Claim erfolgreich erstellt")
@@ -73,6 +96,13 @@ public class ClaimController {
         return claimService.createClaimResponse(request);
     }
 
+    /**
+     * Moves a claim to the requested next lifecycle status.
+     *
+     * @param id claim identifier
+     * @param newStatus requested status
+     * @return the updated claim
+     */
     @PatchMapping("/{id}/status")
     @Operation(summary = "Status eines Claims aktualisieren")
     @ApiResponses({
@@ -83,12 +113,17 @@ public class ClaimController {
     public ClaimResponse updateStatus(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id,
-            @Parameter(description = "Neuer Status", example = "IN_PROGRESS")
+            @Parameter(description = "Neuer Status", example = "IN_REVIEW")
             @RequestParam ClaimStatus newStatus
     ) {
         return claimService.updateClaimResponse(id, newStatus);
     }
 
+    /**
+     * Deletes a claim and records the deletion in the audit trail.
+     *
+     * @param id claim identifier
+     */
     @DeleteMapping("/{id}")
     @Operation(summary = "Claim löschen")
     @ApiResponses({
