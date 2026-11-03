@@ -28,6 +28,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+/**
+ * Represents a reported loss linked to an insurance policy.
+ *
+ * <p>Status changes are constrained by the claim lifecycle and concurrent updates
+ * are detected through the optimistic-locking version.</p>
+ */
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Entity
@@ -125,6 +131,17 @@ public class Claim {
     @Column(nullable = false)
     private long version;
 
+    /**
+     * Creates a claim after enforcing invariants that must hold independently of request validation.
+     *
+     * @param policyId identifier of the policy covering the reported loss
+     * @param occurredOn date on which the loss occurred
+     * @param claimType category of the reported loss
+     * @param description optional description, limited to 1,000 characters
+     * @param amount reported amount, which must be greater than zero
+     * @throws NullPointerException if a required value is {@code null}
+     * @throws IllegalArgumentException if an identifier, amount, or description is invalid
+     */
     private Claim(Long policyId, LocalDate occurredOn, ClaimType claimType, String description, BigDecimal amount) {
         this.policyId = Objects.requireNonNull(policyId, "policyId must not be null");
         this.occurredOn = Objects.requireNonNull(occurredOn, "occurredOn must not be null");
@@ -142,6 +159,18 @@ public class Claim {
         this.description = description;
     }
 
+    /**
+     * Creates a new claim in the initial {@link ClaimStatus#RECEIVED} state.
+     *
+     * @param policyId identifier of the associated policy
+     * @param occurredOn date of the loss
+     * @param claimType category of the loss
+     * @param description optional loss description
+     * @param amount reported loss amount
+     * @return a new, unsaved claim
+     * @throws NullPointerException if a required value is {@code null}
+     * @throws IllegalArgumentException if an identifier or amount is invalid
+     */
     public static Claim create(
             Long policyId,
             LocalDate occurredOn,
@@ -152,6 +181,15 @@ public class Claim {
         return new Claim(policyId, occurredOn, claimType, description, amount);
     }
 
+    /**
+     * Checks whether the current claim status can transition to the requested status.
+     *
+     * <p>The supported flow is {@code RECEIVED -> IN_REVIEW -> APPROVED|REJECTED};
+     * terminal states cannot transition further.</p>
+     *
+     * @param target proposed next status
+     * @throws IllegalStateException if the transition is not permitted
+     */
     public void assertCanTransitionTo(ClaimStatus target) {
         boolean valid = target != null && switch (status) {
             case RECEIVED -> target == ClaimStatus.IN_REVIEW;
@@ -163,6 +201,12 @@ public class Claim {
         }
     }
 
+    /**
+     * Applies a permitted status transition.
+     *
+     * @param target next status in the claim lifecycle
+     * @throws IllegalStateException if the transition is not permitted
+     */
     public void transitionTo(ClaimStatus target) {
         assertCanTransitionTo(target);
         status = target;

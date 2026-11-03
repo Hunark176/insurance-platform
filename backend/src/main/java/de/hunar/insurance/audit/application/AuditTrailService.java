@@ -18,12 +18,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 
+/**
+ * Captures actor/request context and persists append-only audit entries.
+ *
+ * <p>Audit writes require an existing business transaction and therefore roll back with it.</p>
+ */
 @Service
 @RequiredArgsConstructor
 public class AuditTrailService implements AuditTrailApi {
     private final AuditEntryRepository repository;
     private final Clock clock;
 
+    /**
+     * Captures the authenticated user and current request ID, falling back to {@code SYSTEM}.
+     *
+     * @return context that can be attached to a business event or audit entry
+     */
     @Override
     public AuditContext captureContext() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -35,6 +45,16 @@ public class AuditTrailService implements AuditTrailApi {
         return new AuditContext(actor, MDC.get("requestId"));
     }
 
+    /**
+     * Appends an audit entry within the caller's transaction.
+     *
+     * @param action action that occurred
+     * @param entityType affected entity type
+     * @param entityId affected entity identifier
+     * @param summary data-minimized change description
+     * @param context actor and request context
+     * @throws IllegalStateException if called without an active transaction
+     */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(String action, String entityType, String entityId, String summary, AuditContext context) {
@@ -49,6 +69,14 @@ public class AuditTrailService implements AuditTrailApi {
         ));
     }
 
+    /**
+     * Reads a page of audit entries for one entity, newest first as requested by the caller.
+     *
+     * @param entityType entity type filter
+     * @param entityId entity identifier filter
+     * @param pageable page and sort configuration
+     * @return matching audit entries
+     */
     @Transactional(readOnly = true)
     public Page<AuditEntryResponse> findForEntity(String entityType, String entityId, Pageable pageable) {
         return repository.findByEntityTypeAndEntityIdOrderByOccurredAtDesc(entityType, entityId, pageable)

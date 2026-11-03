@@ -11,21 +11,47 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Exposes policy read operations and role-protected issuance and cancellation actions.
+ */
 @RestController
 @RequestMapping("/api/policies")
 @RequiredArgsConstructor
 public class PolicyController {
     private final PolicyService service;
 
+    /**
+     * Lists policy responses for authenticated callers.
+     *
+     * @return all policies
+     */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public List<PolicyResponse> findAll() { return service.findAllResponses(); }
 
+    /**
+     * Issues a policy after validating the request and underwriting result.
+     *
+     * @param request policy issuance details
+     * @return the issued policy
+     */
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public PolicyResponse issue(@Valid @RequestBody IssuePolicyRequest request) { return service.issue(request); }
+    /**
+     * Retrieves a policy by identifier.
+     *
+     * @param id policy identifier
+     * @return the requested policy
+     */
     @GetMapping("/{id}") @PreAuthorize("isAuthenticated()")
     public PolicyResponse find(@PathVariable Long id) { return service.findByIdResponse(id); }
+    /**
+     * Cancels an active policy.
+     *
+     * @param id policy identifier
+     * @return the cancelled policy
+     */
     @PostMapping("/{id}/cancel") @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public PolicyResponse cancel(@PathVariable Long id) { return service.cancel(id); }
 }

@@ -10,6 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * Creates one invoice for each issued policy and propagates the issuance audit context.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -17,6 +20,11 @@ class PolicyIssuedListener {
     private final InvoiceRepository invoiceRepository;
     private final AuditTrailApi auditTrail;
 
+    /**
+     * Handles policy issuance; duplicate events are ignored when an invoice already exists.
+     *
+     * @param event issuance data and audit context published by the policy module
+     */
     @ApplicationModuleListener
     void onPolicyIssued(PolicyIssuedEvent event) {
         if (invoiceRepository.existsByPolicyId(event.policyId())) {

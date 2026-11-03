@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * Evaluates policy-issuance eligibility using customer and product module contracts.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -19,6 +22,13 @@ public class UnderwritingService implements UnderwritingApi {
     private final ProductApi productApi;
     private final UnderwritingMapper mapper;
 
+    /**
+     * Applies the current underwriting rule: the customer must exist and the product must be active.
+     *
+     * @param customerId customer to evaluate
+     * @param productId product to evaluate
+     * @return whether a policy can be issued for the supplied combination
+     */
     @Override
     public boolean canIssue(Long customerId, Long productId) {
         boolean customerExists = customerApi.exists(customerId);
@@ -29,6 +39,12 @@ public class UnderwritingService implements UnderwritingApi {
         return eligible;
     }
 
+    /**
+     * Evaluates a user-facing underwriting request and returns an explanatory result.
+     *
+     * @param request customer and product identifiers to evaluate
+     * @return eligibility result with a human-readable reason
+     */
     public UnderwritingCheckResponse check(UnderwritingCheckRequest request) {
         boolean eligible = canIssue(request.customerId(), request.productId());
         log.info("Underwriting check completed: customerId={} productId={} eligible={}",
