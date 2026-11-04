@@ -1,7 +1,13 @@
 # API
 
 The generated OpenAPI contract is available at `/v3/api-docs`; Swagger UI is
-available at `/swagger-ui.html` when the backend is running.
+available at `/swagger-ui.html` when the backend is running. In the portfolio
+deployment, API endpoints are public for interactive review. HTTP DELETE is
+disabled for all `/api/**` endpoints. Use only synthetic demo data; this setup
+is not suitable for real customer or insurance data.
+
+Public deployment: [Swagger UI](https://insurance.hunarkarim.de/swagger-ui.html)
+and [OpenAPI document](https://insurance.hunarkarim.de/v3/api-docs).
 
 ## Claims
 

@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,8 +30,22 @@ class ClaimControllerSecurityTest {
     private ClaimService claimService;
 
     @Test
-    void anonymousRequestsAreRejected() throws Exception {
-        mockMvc.perform(get("/api/claims")).andExpect(status().isUnauthorized());
+    void anonymousRequestsMayReadClaims() throws Exception {
+        when(claimService.getClaimResponses(any(Pageable.class), isNull()))
+                .thenReturn(new ClaimPageResponse(List.of(), 0, 20, 0, 0, true, true));
+
+        mockMvc.perform(get("/api/claims"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "ADMIN")
+    void deletionIsDisabledEvenForAdministrators() throws Exception {
+        mockMvc.perform(delete("/api/claims/1"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(claimService);
     }
 
     @Test

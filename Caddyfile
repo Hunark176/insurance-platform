@@ -11,6 +11,14 @@
         reverse_proxy backend:8080
     }
 
+    handle /swagger-ui* {
+        reverse_proxy backend:8080
+    }
+
+    handle /v3/api-docs* {
+        reverse_proxy backend:8080
+    }
+
     handle {
         root * /srv
         try_files {path} /index.html

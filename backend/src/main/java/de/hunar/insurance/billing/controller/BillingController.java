@@ -3,13 +3,12 @@ package de.hunar.insurance.billing.controller;
 import de.hunar.insurance.billing.application.BillingService;
 import de.hunar.insurance.billing.dto.PayoutResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * Exposes staff payout queries and administrator-only payout execution.
+ * Exposes public payout queries and payout execution for demonstration purposes.
  */
 @RestController
 @RequestMapping("/api/payouts")
@@ -22,7 +21,6 @@ public class BillingController {
      * @return all payout responses
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public List<PayoutResponse> findAll() { return service.findAll(); }
     /**
      * Marks a created payout as executed.
@@ -31,6 +29,5 @@ public class BillingController {
      * @return the updated payout
      */
     @PostMapping("/{id}/pay")
-    @PreAuthorize("hasRole('ADMIN')")
     public PayoutResponse markPaid(@PathVariable Long id) { return service.markPaid(id); }
 }

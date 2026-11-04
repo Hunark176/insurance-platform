@@ -183,10 +183,11 @@ Schäden wieder her. Gelöschte echte Daten können nur aus einem Datenbank-Back
 wiederhergestellt werden. Das PostgreSQL-Volume nicht mit `docker compose down
 -v` löschen.
 
-Die API verwendet derzeit HTTP Basic und stellt die Demo-Benutzer
-`customer/customer`, `clerk/clerk` und `admin/admin` als In-Memory-Konten
-bereit. Diese Zugangsdaten sind ausschließlich für die Entwicklung gedacht
-und müssen vor einem produktiven Einsatz ersetzt werden.
+Die Portfolio-API ist öffentlich aufrufbar, damit Interessierte die Funktionen
+direkt über Swagger ausprobieren können. Schreibende API-Aufrufe benötigen
+keine Anmeldung; HTTP-DELETE-Aufrufe auf `/api/**` sind serverseitig gesperrt.
+Die Umgebung darf deshalb ausschließlich mit synthetischen Demo-Daten betrieben
+werden. Sie ist nicht für echte Kunden- oder Versicherungsdaten geeignet.
 
 ## Qualitätssicherung
 
@@ -209,7 +210,12 @@ das Backend aus.
 
 ## API ausprobieren
 
-Swagger UI: <http://localhost:8080/swagger-ui.html>
+Swagger UI lokal: <http://localhost:8080/swagger-ui.html>
+
+Swagger öffentlich: <https://insurance.hunarkarim.de/swagger-ui.html>
+
+Die OpenAPI-Beschreibung liegt unter
+<https://insurance.hunarkarim.de/v3/api-docs>.
 
 Beispiele für die Claim-Übersicht (Authentifizierung erforderlich):
 
