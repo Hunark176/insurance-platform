@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -19,8 +20,9 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.DELETE, "/api/**").denyAll()
                         .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**",
-                                "/swagger-ui.html", "/h2-console/**").permitAll()
+                                "/swagger-ui.html", "/h2-console/**", "/api/**").permitAll()
                         .anyRequest().authenticated())
                 .httpBasic(basic -> {})
                 .headers(headers -> headers

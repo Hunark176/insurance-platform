@@ -19,11 +19,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Exposes authenticated claim queries and role-protected claim lifecycle operations.
+ * Exposes public claim operations; deletion is disabled by the security filter chain.
  */
 @RestController
 @RequestMapping("/api/claims")
@@ -45,7 +44,6 @@ public class ClaimController {
     @GetMapping
     @Operation(summary = "Paginierte Claim-Übersicht laden")
     @ApiResponse(responseCode = "200", description = "Paginierte Claim-Übersicht erfolgreich geladen")
-    @PreAuthorize("isAuthenticated()")
     public ClaimPageResponse getAllClaims(
             @Parameter(description = "0-basierte Seitennummer", example = "0")
             @RequestParam(defaultValue = "0") @Min(0) int page,
@@ -70,7 +68,6 @@ public class ClaimController {
             @ApiResponse(responseCode = "200", description = "Claim gefunden"),
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
-    @PreAuthorize("isAuthenticated()")
     public ClaimResponse getClaim(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id
@@ -88,7 +85,6 @@ public class ClaimController {
     @Operation(summary = "Neuen Claim erstellen")
     @ApiResponse(responseCode = "201", description = "Claim erfolgreich erstellt")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('CUSTOMER','CLERK','ADMIN')")
     public ClaimResponse createClaim(
             @Parameter(description = "Claim-Daten zum Erstellen")
             @Valid @RequestBody CreateClaimRequest request
@@ -109,7 +105,6 @@ public class ClaimController {
             @ApiResponse(responseCode = "200", description = "Status erfolgreich aktualisiert"),
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
-    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public ClaimResponse updateStatus(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id,
@@ -131,7 +126,6 @@ public class ClaimController {
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public void deleteClaim(
             @Parameter(description = "ID des Claims", example = "1")
             @PathVariable Long id

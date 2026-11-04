@@ -6,13 +6,12 @@ import de.hunar.insurance.product.dto.ProductResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * Exposes authenticated product catalog reads and role-protected product creation.
+ * Exposes public product catalog reads and creation.
  */
 @RestController
 @RequestMapping("/api/products")
@@ -24,7 +23,7 @@ public class ProductController {
      *
      * @return all product responses
      */
-    @GetMapping @PreAuthorize("isAuthenticated()")
+    @GetMapping
     public List<ProductResponse> findAll() { return service.findAll(); }
     /**
      * Creates a product from validated product details.
@@ -32,7 +31,7 @@ public class ProductController {
      * @param request product details
      * @return the created product
      */
-    @PostMapping @ResponseStatus(HttpStatus.CREATED) @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
+    @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public ProductResponse create(@Valid @RequestBody CreateProductRequest request) { return service.create(request); }
     /**
      * Retrieves a product by identifier.
@@ -40,7 +39,7 @@ public class ProductController {
      * @param id product identifier
      * @return the product details
      */
-    @GetMapping("/{id}") @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{id}")
     public ProductResponse findById(@PathVariable Long id) {
         var p = service.findById(id);
         return new ProductResponse(p.id(), p.code(), p.name(), p.coverageLimit(), p.premium(), p.active());

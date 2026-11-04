@@ -6,13 +6,12 @@ import de.hunar.insurance.policy.dto.PolicyResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * Exposes policy read operations and role-protected issuance and cancellation actions.
+ * Exposes public policy read, issuance, and cancellation operations.
  */
 @RestController
 @RequestMapping("/api/policies")
@@ -26,7 +25,6 @@ public class PolicyController {
      * @return all policies
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
     public List<PolicyResponse> findAll() { return service.findAllResponses(); }
 
     /**
@@ -36,7 +34,6 @@ public class PolicyController {
      * @return the issued policy
      */
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
     public PolicyResponse issue(@Valid @RequestBody IssuePolicyRequest request) { return service.issue(request); }
     /**
      * Retrieves a policy by identifier.
@@ -44,7 +41,7 @@ public class PolicyController {
      * @param id policy identifier
      * @return the requested policy
      */
-    @GetMapping("/{id}") @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{id}")
     public PolicyResponse find(@PathVariable Long id) { return service.findByIdResponse(id); }
     /**
      * Cancels an active policy.
@@ -52,6 +49,6 @@ public class PolicyController {
      * @param id policy identifier
      * @return the cancelled policy
      */
-    @PostMapping("/{id}/cancel") @PreAuthorize("hasAnyRole('CLERK','ADMIN')")
+    @PostMapping("/{id}/cancel")
     public PolicyResponse cancel(@PathVariable Long id) { return service.cancel(id); }
 }

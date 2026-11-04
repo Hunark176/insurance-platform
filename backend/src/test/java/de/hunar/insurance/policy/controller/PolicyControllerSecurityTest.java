@@ -28,8 +28,12 @@ class PolicyControllerSecurityTest {
     private PolicyService policyService;
 
     @Test
-    void anonymousRequestsAreRejected() throws Exception {
-        mockMvc.perform(get("/api/policies")).andExpect(status().isUnauthorized());
+    void anonymousRequestsMayReadPolicies() throws Exception {
+        when(policyService.findAllResponses()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/policies"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test
