@@ -1,14 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchClaims } from '@/api/claimService.ts'
-import type { Claim } from '@/types/claim.ts'
+import { fetchClaims, updateClaimStatus } from '@/api/claimService.ts'
+import { describeApiError } from '@/api/apiErrors'
+import { CLAIM_STATUS_LABELS } from '@/features/claims/claimStatus'
+import type { Claim, ClaimStatus } from '@/types/claim.ts'
 
 type SortField = 'id' | 'amount'
 type SortDirection = 'asc' | 'desc'
 
+export interface Notice {
+  tone: 'success' | 'error'
+  text: string
+}
+
 export function useClaims() {
   const [claims, setClaims] = useState<Claim[]>([])
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState<Notice | null>(null)
   const [loading, setLoading] = useState(false)
+  const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [totalClaims, setTotalClaims] = useState(0)
@@ -20,18 +28,38 @@ export function useClaims() {
   const handleLoadClaims = useCallback(async () => {
     try {
       setLoading(true)
-      setMessage('')
+      setMessage(null)
       const data = await fetchClaims(page)
       setClaims(data.content)
       setTotalClaims(data.totalElements)
       setTotalPages(data.totalPages)
-      setMessage('Daten erfolgreich geladen.')
-    } catch {
-      setMessage('Keine Verbindung zum Server möglich.')
+      setMessage({ tone: 'success', text: 'Daten erfolgreich geladen.' })
+    } catch (error) {
+      setMessage({ tone: 'error', text: describeApiError(error) })
     } finally {
       setLoading(false)
     }
   }, [page])
+
+  const handleStatusChange = useCallback(async (id: number, newStatus: ClaimStatus) => {
+    setUpdatingId(id)
+    setMessage(null)
+    try {
+      const updated = await updateClaimStatus(id, newStatus)
+      setClaims((current) => current.map((claim) => (claim.id === id ? updated : claim)))
+      setMessage({
+        tone: 'success',
+        text:
+          newStatus === 'APPROVED'
+            ? `Claim #${id} genehmigt – die Auszahlung wird automatisch angelegt.`
+            : `Claim #${id}: Status ist jetzt „${CLAIM_STATUS_LABELS[newStatus]}“.`,
+      })
+    } catch (error) {
+      setMessage({ tone: 'error', text: `Claim #${id}: ${describeApiError(error)}` })
+    } finally {
+      setUpdatingId(null)
+    }
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -99,5 +127,7 @@ export function useClaims() {
     handleLoadClaims,
     handleSort,
     handlePageChange,
+    handleStatusChange,
+    updatingId,
   }
 }

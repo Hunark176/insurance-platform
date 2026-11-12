@@ -2,7 +2,9 @@ package de.hunar.insurance.billing.controller;
 
 import de.hunar.insurance.billing.application.BillingService;
 import de.hunar.insurance.billing.dto.PayoutResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +30,8 @@ public class BillingController {
      * @param id payout identifier
      * @return the updated payout
      */
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @PostMapping("/{id}/pay")
     public PayoutResponse markPaid(@PathVariable Long id) { return service.markPaid(id); }
 }
