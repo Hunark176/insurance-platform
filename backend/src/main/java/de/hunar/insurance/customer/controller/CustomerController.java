@@ -3,9 +3,11 @@ package de.hunar.insurance.customer.controller;
 import de.hunar.insurance.customer.application.CustomerService;
 import de.hunar.insurance.customer.dto.CreateCustomerRequest;
 import de.hunar.insurance.customer.dto.CustomerResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,6 +27,8 @@ public class CustomerController {
      * @return all customer responses
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     public List<CustomerResponse> findAll() {
         return service.findAll();
     }
@@ -36,6 +40,8 @@ public class CustomerController {
      * @return the created customer
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @ResponseStatus(HttpStatus.CREATED)
     public CustomerResponse create(@Valid @RequestBody CreateCustomerRequest request) {
         return service.create(request);
