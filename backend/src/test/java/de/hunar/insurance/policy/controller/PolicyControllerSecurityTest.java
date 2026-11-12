@@ -41,7 +41,7 @@ class PolicyControllerSecurityTest {
     void authenticatedUserMayReadAllPolicies() throws Exception {
         when(policyService.findAllResponses()).thenReturn(List.of(
                 new PolicyResponse(1L, 2L, "C-2", "Test Customer", 3L, "Test Product",
-                        null, null, null, null, null)));
+                        null, null, null, null, null, null)));
 
         mockMvc.perform(get("/api/policies"))
                 .andExpect(status().isOk())

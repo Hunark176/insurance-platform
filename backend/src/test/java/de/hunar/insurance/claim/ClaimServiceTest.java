@@ -83,7 +83,7 @@ class ClaimServiceTest {
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("own policies");
-        verify(policyApi, never()).isActiveAt(any(), any());
+        verify(policyApi, never()).isCoveredOn(any(), any());
         verifyNoInteractions(claimRepository);
     }
 
@@ -94,7 +94,7 @@ class ClaimServiceTest {
                 request.description(), request.amount());
         ReflectionTestUtils.setField(claim, "id", 1L);
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
         when(claimMapper.toEntity(request)).thenReturn(claim);
         when(claimRepository.save(claim)).thenReturn(claim);
         when(claimMapper.toResponse(claim, policy)).thenReturn(
@@ -147,7 +147,7 @@ class ClaimServiceTest {
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Customer does not match");
-        verify(policyApi, never()).isActiveAt(any(), any());
+        verify(policyApi, never()).isCoveredOn(any(), any());
         verifyNoInteractions(claimRepository);
     }
 
@@ -155,7 +155,7 @@ class ClaimServiceTest {
     void createClaimRejectsLossOutsidePolicyCoveragePeriod() {
         CreateClaimRequest request = validRequest();
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(false);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(false);
 
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(DomainException.class)
@@ -188,7 +188,7 @@ class ClaimServiceTest {
         Claim claim = reviewClaim(new BigDecimal("500.00"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
         when(claimRepository.save(claim)).thenReturn(claim);
 
         Claim result = claimService.updateClaim(7L, ClaimStatus.APPROVED);
@@ -205,7 +205,7 @@ class ClaimServiceTest {
         Claim claim = reviewClaim(new BigDecimal("100000.01"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
 
         assertThatThrownBy(() -> claimService.updateClaim(7L, ClaimStatus.APPROVED))
                 .isInstanceOf(DomainException.class)
@@ -219,7 +219,7 @@ class ClaimServiceTest {
         Claim claim = reviewClaim(new BigDecimal("500.00"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(false);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(false);
 
         assertThatThrownBy(() -> claimService.updateClaim(7L, ClaimStatus.APPROVED))
                 .isInstanceOf(DomainException.class)

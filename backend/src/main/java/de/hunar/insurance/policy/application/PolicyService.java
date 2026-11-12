@@ -25,6 +25,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -46,6 +47,7 @@ public class PolicyService implements PolicyApi {
     private final PolicyMapper mapper;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditTrailApi auditTrail;
+    private final Clock clock;
 
     /**
      * Issues a policy when underwriting approves the customer-product combination.
@@ -120,21 +122,28 @@ public class PolicyService implements PolicyApi {
     /**
      * Cancels an active policy and records the status change.
      *
+     * <p>Losses up to and including the effective date stay covered; open claims are not
+     * affected and continue through the normal claim process.</p>
+     *
      * @param id policy identifier
+     * @param effectiveOn last covered day; {@code null} means today
      * @return the cancelled policy response
      * @throws ResourceNotFoundException if the policy or its related customer/product is missing
-     * @throws DomainException if the policy is not active
+     * @throws DomainException if the policy is not active or the date is invalid
      */
     @Transactional
-    public PolicyResponse cancel(Long id) {
+    public PolicyResponse cancel(Long id, LocalDate effectiveOn) {
         Policy policy = get(id);
         PolicyStatus previousStatus = policy.getStatus();
-        policy.cancel();
+        LocalDate today = LocalDate.now(clock);
+        policy.cancel(effectiveOn == null ? today : effectiveOn, today);
         Policy cancelledPolicy = repository.save(policy);
         auditTrail.record("STATUS_CHANGED", "POLICY", id.toString(),
-                "from=" + previousStatus + ",to=" + cancelledPolicy.getStatus(), auditTrail.captureContext());
-        log.info("Policy status changed: policyId={} fromStatus={} toStatus={}",
-                id, previousStatus, cancelledPolicy.getStatus());
+                "from=" + previousStatus + ",to=" + cancelledPolicy.getStatus()
+                        + ",effectiveOn=" + cancelledPolicy.getCancelledOn(),
+                auditTrail.captureContext());
+        log.info("Policy status changed: policyId={} fromStatus={} toStatus={} effectiveOn={}",
+                id, previousStatus, cancelledPolicy.getStatus(), cancelledPolicy.getCancelledOn());
         return mapper.toResponse(cancelledPolicy, customerApi.findById(cancelledPolicy.getCustomerId()),
                 productApi.findById(cancelledPolicy.getProductId()));
     }
@@ -191,22 +200,19 @@ public class PolicyService implements PolicyApi {
     }
 
     /**
-     * Checks whether an active policy covers the supplied date, including both term boundaries.
+     * Checks whether a loss on the supplied date is covered, see {@link Policy#covers(LocalDate)}.
      *
      * @param id policy identifier
-     * @param date date on which coverage is evaluated
-     * @return {@code true} if the policy is active and the date is within its term
+     * @param lossDate date on which the loss occurred
+     * @return {@code true} if the date lies within the coverage period
      * @throws ResourceNotFoundException if the policy does not exist
      */
     @Override
     @Transactional(readOnly = true)
-    public boolean isActiveAt(Long id, LocalDate date) {
-        Policy p = get(id);
-        boolean active = p.getStatus() == PolicyStatus.ACTIVE
-                && !date.isBefore(p.getValidFrom())
-                && !date.isAfter(p.getValidTo());
-        log.debug("Policy coverage checked: policyId={} date={} active={}", id, date, active);
-        return active;
+    public boolean isCoveredOn(Long id, LocalDate lossDate) {
+        boolean covered = get(id).covers(lossDate);
+        log.debug("Policy coverage checked: policyId={} lossDate={} covered={}", id, lossDate, covered);
+        return covered;
     }
 
     private Policy get(Long id) {

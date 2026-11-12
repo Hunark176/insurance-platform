@@ -13,7 +13,7 @@ public class PolicyMapper {
     public PolicyResponse toResponse(Policy p, CustomerSummary customer, ProductSummary product) {
         return new PolicyResponse(p.getId(), p.getCustomerId(), customer.customerNumber(), customer.displayName(),
                 p.getProductId(), product.name(), p.getValidFrom(), p.getValidTo(), p.getCoverageLimit(),
-                p.getPremium(), p.getStatus());
+                p.getPremium(), p.getStatus(), p.getCancelledOn());
     }
     public PolicySnapshot toSnapshot(Policy p, CustomerSummary customer) {
         return new PolicySnapshot(p.getId(), p.getCustomerId(), customer.customerNumber(), customer.displayName(),

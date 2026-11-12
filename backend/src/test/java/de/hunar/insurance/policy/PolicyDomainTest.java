@@ -23,24 +23,99 @@ class PolicyDomainTest {
         assertThat(policy.getValidTo()).isAfter(policy.getValidFrom());
     }
 
-    @Test
-    void cancellingPolicyChangesStatus() {
-        Policy policy = new Policy(1L, 2L, LocalDate.now(), LocalDate.now().plusDays(1),
-                BigDecimal.TEN, BigDecimal.ONE);
+    private static final LocalDate TERM_START = LocalDate.of(2026, 1, 1);
+    private static final LocalDate TERM_END = LocalDate.of(2026, 12, 31);
+    private static final LocalDate TODAY = LocalDate.of(2026, 6, 15);
 
-        policy.cancel();
+    @Test
+    void cancellingPolicyChangesStatusAndRecordsTheEffectiveDate() {
+        Policy policy = termPolicy();
+
+        policy.cancel(TODAY, TODAY);
 
         assertThat(policy.getStatus()).isEqualTo(PolicyStatus.CANCELLED);
+        assertThat(policy.getCancelledOn()).isEqualTo(TODAY);
+        assertThat(policy.getCoverageEndsOn()).isEqualTo(TODAY);
+    }
+
+    @Test
+    void cancelledPolicyStillCoversLossesUpToTheCancellationDate() {
+        Policy policy = termPolicy();
+        policy.cancel(TODAY, TODAY);
+
+        // Loss-occurrence principle: losses before (and on) the cancellation date stay covered.
+        assertThat(policy.covers(TERM_START)).isTrue();
+        assertThat(policy.covers(TODAY.minusDays(10))).isTrue();
+        assertThat(policy.covers(TODAY)).isTrue();
+        // Losses after the cancellation are not covered any more.
+        assertThat(policy.covers(TODAY.plusDays(1))).isFalse();
+        assertThat(policy.covers(TERM_END)).isFalse();
+    }
+
+    @Test
+    void cancellationCanTakeEffectInTheFuture() {
+        Policy policy = termPolicy();
+        LocalDate endOfMonth = LocalDate.of(2026, 6, 30);
+
+        policy.cancel(endOfMonth, TODAY);
+
+        assertThat(policy.covers(endOfMonth)).isTrue();
+        assertThat(policy.covers(endOfMonth.plusDays(1))).isFalse();
+    }
+
+    @Test
+    void cancellationCannotRemoveCoverageRetroactively() {
+        Policy policy = termPolicy();
+
+        assertThatThrownBy(() -> policy.cancel(TODAY.minusDays(1), TODAY))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("retroactively");
+        assertThat(policy.getStatus()).isEqualTo(PolicyStatus.ACTIVE);
+        assertThat(policy.getCancelledOn()).isNull();
+    }
+
+    @Test
+    void cancellationDateMustNotBeAfterTheEndOfTheTerm() {
+        Policy policy = termPolicy();
+
+        assertThatThrownBy(() -> policy.cancel(TERM_END.plusDays(1), TODAY))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("end of the policy term");
+    }
+
+    @Test
+    void cancellingBeforeTheTermStartsMeansNoCoverageAtAll() {
+        Policy futurePolicy = new Policy(1L, 2L, LocalDate.of(2027, 1, 1), LocalDate.of(2027, 12, 31),
+                BigDecimal.TEN, BigDecimal.ONE);
+
+        futurePolicy.cancel(TODAY, TODAY);
+
+        assertThat(futurePolicy.covers(LocalDate.of(2027, 1, 1))).isFalse();
+        assertThat(futurePolicy.covers(TODAY)).isFalse();
+    }
+
+    @Test
+    void activePolicyCoversItsWholeTermInclusive() {
+        Policy policy = termPolicy();
+
+        assertThat(policy.covers(TERM_START.minusDays(1))).isFalse();
+        assertThat(policy.covers(TERM_START)).isTrue();
+        assertThat(policy.covers(TERM_END)).isTrue();
+        assertThat(policy.covers(TERM_END.plusDays(1))).isFalse();
     }
 
     @Test
     void cancelledPolicyCannotBeCancelledAgain() {
-        Policy policy = newPolicy();
-        policy.cancel();
+        Policy policy = termPolicy();
+        policy.cancel(TODAY, TODAY);
 
-        assertThatThrownBy(policy::cancel)
+        assertThatThrownBy(() -> policy.cancel(TODAY, TODAY))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Only an active policy");
+    }
+
+    private static Policy termPolicy() {
+        return new Policy(1L, 2L, TERM_START, TERM_END, BigDecimal.TEN, BigDecimal.ONE);
     }
 
     @Test
@@ -55,11 +130,5 @@ class PolicyDomainTest {
                 BigDecimal.ZERO, BigDecimal.ONE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("coverageLimit");
-    }
-
-    private Policy newPolicy() {
-        LocalDate start = LocalDate.of(2026, 1, 1);
-        return new Policy(1L, 2L, start, start.plusYears(1),
-                new BigDecimal("100000.00"), new BigDecimal("49.90"));
     }
 }
