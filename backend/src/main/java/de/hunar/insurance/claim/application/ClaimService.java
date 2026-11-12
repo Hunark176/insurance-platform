@@ -64,13 +64,10 @@ public class ClaimService {
         List<Claim> claims = claimPage.getContent();
         Map<Long, PolicySnapshot> policies = policyApi.getSnapshots(
                         claims.stream().map(Claim::getPolicyId).distinct().toList())
-                .stream().collect(Collectors.toMap(PolicySnapshot::id, Function.identity())); System.out.println("policies" +
-                "  "+policies);
+                .stream().collect(Collectors.toMap(PolicySnapshot::id, Function.identity()));
         List<ClaimResponse> content = claims.stream()
                 .map(claim -> claimMapper.toResponse(claim, requirePolicy(policies, claim.getPolicyId())))
                 .toList();
-        System.out.println("content" +
-                "  "+content);
         return new ClaimPageResponse(content, claimPage.getNumber(), claimPage.getSize(),
                 claimPage.getTotalElements(), claimPage.getTotalPages(), claimPage.isFirst(), claimPage.isLast());
     }
