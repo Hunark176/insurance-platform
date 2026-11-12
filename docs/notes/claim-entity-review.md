@@ -1,3 +1,5 @@
+> **Historische Notiz (Stand 29. Oktober 2026).** Seitdem umgesetzt: `Claim` ohne öffentliche Setter, `@Version` (V11), injizierte `Clock`, Zeitstempel als UTC-`Instant` (V14). Die erwähnte Klasse `AuditableEntity` wurde entfernt.
+
 Ja, die vier Punkte sind grundsätzlich sinnvoll – aber zwei brauchen eine wichtige Einordnung zum aktuellen Code:
 
 | Verbesserung | Einschätzung für dieses Projekt |
