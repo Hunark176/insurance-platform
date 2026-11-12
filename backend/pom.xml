@@ -24,7 +24,9 @@
 	<properties>
 		<java.version>21</java.version>
 		<spring-modulith.version>1.4.4</spring-modulith.version>
-		<testcontainers.version>1.20.6</testcontainers.version>
+		<!-- 1.21.4+ negotiates the Docker API version; 1.20.x is rejected by
+		     current Docker Engines ("client version 1.32 is too old"). -->
+		<testcontainers.version>1.21.4</testcontainers.version>
 	</properties>
 
 	<dependencyManagement>
@@ -69,9 +71,13 @@
 			<artifactId>spring-modulith-starter-core</artifactId>
 		</dependency>
 
+		<!-- Persistent event publication registry (transactional outbox):
+		     events are stored with the business transaction and re-delivered
+		     until their listener completes. Includes events-core and Jackson
+		     serialization of the stored events. -->
 		<dependency>
 			<groupId>org.springframework.modulith</groupId>
-			<artifactId>spring-modulith-events-core</artifactId>
+			<artifactId>spring-modulith-starter-jpa</artifactId>
 		</dependency>
 
 		<!-- H2 für Entwicklung und Tests -->
@@ -136,6 +142,13 @@
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- Waits for asynchronous event listeners in integration tests (version managed by Spring Boot). -->
+		<dependency>
+			<groupId>org.awaitility</groupId>
+			<artifactId>awaitility</artifactId>
 			<scope>test</scope>
 		</dependency>
 
