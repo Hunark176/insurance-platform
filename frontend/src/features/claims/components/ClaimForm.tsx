@@ -3,7 +3,11 @@ import { Button } from '@/components/ui/button'
 import { ClaimStats } from './ClaimStats'
 import { ClaimTable } from './ClaimTable'
 
-export function ClaimForm() {
+interface ClaimFormProps {
+  onLoginRequired: () => void
+}
+
+export function ClaimForm({ onLoginRequired }: ClaimFormProps) {
   const {
     claims,
     filteredClaims,
@@ -20,6 +24,8 @@ export function ClaimForm() {
     handleLoadClaims,
     handleSort,
     handlePageChange,
+    handleStatusChange,
+    updatingId,
   } = useClaims()
 
   return (
@@ -45,13 +51,14 @@ export function ClaimForm() {
         {/* Message Banner */}
         {message && (
           <div
+            role={message.tone === 'error' ? 'alert' : 'status'}
             className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-              message.includes('erfolgreich')
+              message.tone === 'success'
                 ? 'border-green-200 bg-green-50 text-green-700'
                 : 'border-red-200 bg-red-50 text-red-700'
             }`}
           >
-            {message}
+            {message.text}
           </div>
         )}
 
@@ -77,6 +84,9 @@ export function ClaimForm() {
           totalPages={totalPages}
           totalClaims={totalClaims}
           onPageChange={handlePageChange}
+          updatingId={updatingId}
+          onStatusChange={handleStatusChange}
+          onLoginRequired={onLoginRequired}
         />
       </div>
     </div>
