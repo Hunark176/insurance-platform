@@ -1,6 +1,11 @@
 spring:
   profiles:
     default: dev
+  # Transactional outbox: deliver events whose listener did not complete
+  # (crash, failure) again when the application starts.
+  modulith:
+    events:
+      republish-outstanding-events-on-restart: true
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] [%X{requestId:-}] %logger{36} - %msg%n"
@@ -16,6 +21,13 @@ springdoc:
 # Public demo logins. Each password defaults to the username in every profile; set
 # DEMO_*_PASSWORD environment variables to override them.
 insurance:
+  # Runtime care for the event outbox (see EventPublicationMaintenance).
+  events:
+    maintenance:
+      enabled: true
+      retry-interval: PT1M
+      retry-older-than: PT5M
+      completed-retention: P7D
   security:
     publish-credentials: ${DEMO_PUBLISH_CREDENTIALS:true}
     users:
