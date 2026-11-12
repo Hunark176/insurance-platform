@@ -15,7 +15,9 @@ import de.hunar.insurance.policy.PolicyApi;
 import de.hunar.insurance.policy.PolicySnapshot;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
+import de.hunar.insurance.shared.security.CustomerAccessPolicy;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +56,8 @@ class ClaimServiceTest {
     private ClaimMapper claimMapper;
     @Mock
     private AuditTrailApi auditTrail;
+    @Mock
+    private CustomerAccessPolicy customerAccess;
 
     private ClaimService claimService;
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
@@ -64,7 +68,23 @@ class ClaimServiceTest {
 
     @BeforeEach
     void setUp() {
-        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper, clock, auditTrail);
+        claimService = new ClaimService(claimRepository, eventPublisher, policyApi, claimMapper, clock, auditTrail,
+                customerAccess);
+        // Default: the caller may act for the customer; denial is covered by a dedicated test.
+        lenient().when(customerAccess.canActFor(any())).thenReturn(true);
+    }
+
+    @Test
+    void createClaimRejectsCustomerActingForAnotherCustomer() {
+        CreateClaimRequest request = validRequest();
+        when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
+        when(customerAccess.canActFor(policy.customerNumber())).thenReturn(false);
+
+        assertThatThrownBy(() -> claimService.createClaimResponse(request))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("own policies");
+        verify(policyApi, never()).isActiveAt(any(), any());
+        verifyNoInteractions(claimRepository);
     }
 
     @Test
