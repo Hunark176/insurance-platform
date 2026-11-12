@@ -233,3 +233,12 @@ select c.id, c.policy_id, c.amount, 'EUR', 'EXECUTED', 0
 from claims c
 where c.status = 'APPROVED'
   and not exists (select 1 from payouts existing where existing.claim_id = c.id);
+
+-- Annual aggregate (mirrors Flyway V16): private liability pays at most twice the
+-- coverage limit per policy year. Written H2-compatible (no UPDATE ... FROM).
+update products set annual_aggregate_factor = 2 where code = 'PRIVAT-HAFTPFLICHT';
+
+update policies
+set annual_aggregate_limit = coverage_limit
+    * (select pr.annual_aggregate_factor from products pr where pr.id = policies.product_id)
+where product_id in (select pr.id from products pr where pr.annual_aggregate_factor is not null);

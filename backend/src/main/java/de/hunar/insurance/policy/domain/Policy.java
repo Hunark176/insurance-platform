@@ -1,5 +1,6 @@
 package de.hunar.insurance.policy.domain;
 
+import de.hunar.insurance.policy.PolicyYear;
 import de.hunar.insurance.shared.domain.DomainException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
@@ -53,6 +54,15 @@ public class Policy {
     @Digits(integer = 17, fraction = 2)
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal premium;
+
+    /**
+     * Maximum total paid for all losses of one policy year, copied from the product terms at
+     * issuance like the coverage limit; {@code null} means only the per-loss limit applies.
+     */
+    @Digits(integer = 17, fraction = 2)
+    @Column(name = "annual_aggregate_limit", precision = 19, scale = 2)
+    private BigDecimal annualAggregateLimit;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -69,19 +79,31 @@ public class Policy {
     private long version;
 
     /**
+     * Creates an active policy without an annual aggregate.
+     *
+     * @see #Policy(Long, Long, LocalDate, LocalDate, BigDecimal, BigDecimal, BigDecimal)
+     */
+    public Policy(Long customerId, Long productId, LocalDate validFrom, LocalDate validTo,
+                  BigDecimal coverageLimit, BigDecimal premium) {
+        this(customerId, productId, validFrom, validTo, coverageLimit, premium, null);
+    }
+
+    /**
      * Creates a policy in the active state.
      *
      * @param customerId customer receiving the coverage
      * @param productId product whose terms are copied to the policy
      * @param validFrom first date of the policy term
      * @param validTo last date of the policy term (inclusive)
-     * @param coverageLimit maximum covered amount
+     * @param coverageLimit maximum covered amount per loss
      * @param premium policy premium
+     * @param annualAggregateLimit maximum total per policy year, or {@code null}
      * @throws NullPointerException if a required value is {@code null}
-     * @throws IllegalArgumentException if identifiers, dates, or monetary values are invalid
+     * @throws IllegalArgumentException if identifiers, dates, or monetary values are invalid, or
+     *                                  the annual aggregate is below the per-loss limit
      */
     public Policy(Long customerId, Long productId, LocalDate validFrom, LocalDate validTo,
-                  BigDecimal coverageLimit, BigDecimal premium) {
+                  BigDecimal coverageLimit, BigDecimal premium, BigDecimal annualAggregateLimit) {
         this.customerId = requirePositiveId(customerId, "customerId");
         this.productId = requirePositiveId(productId, "productId");
         this.validFrom = Objects.requireNonNull(validFrom, "validFrom must not be null");
@@ -91,7 +113,26 @@ public class Policy {
         }
         this.coverageLimit = requireAmount(coverageLimit, "coverageLimit", true);
         this.premium = requireAmount(premium, "premium", false);
+        if (annualAggregateLimit != null) {
+            requireAmount(annualAggregateLimit, "annualAggregateLimit", true);
+            if (annualAggregateLimit.compareTo(this.coverageLimit) < 0) {
+                throw new IllegalArgumentException("annualAggregateLimit must not be below the coverage limit");
+            }
+        }
+        this.annualAggregateLimit = annualAggregateLimit;
         this.status = PolicyStatus.ACTIVE;
+    }
+
+    /**
+     * Returns the policy year that contains the given date. Policy years start on the
+     * anniversary of {@link #getValidFrom()}; a leap-day start falls back to 28 February.
+     *
+     * @param date date within or after the start of the term
+     * @return first and last day (inclusive) of that policy year
+     * @throws IllegalArgumentException if the date lies before the start of the term
+     */
+    public PolicyYear policyYearOf(LocalDate date) {
+        return PolicyYear.containing(validFrom, date);
     }
 
     /**

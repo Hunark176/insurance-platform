@@ -37,7 +37,8 @@ public class ProductService implements ProductApi {
      */
     @Transactional
     public ProductResponse create(CreateProductRequest r) {
-        Product product = repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium()));
+        Product product = repository.save(new Product(r.code(), r.name(), r.coverageLimit(), r.premium(),
+                r.annualAggregateFactor()));
         auditTrail.record("CREATED", "PRODUCT", product.getId().toString(),
                 "product created", auditTrail.captureContext());
         log.info("Product created: productId={}", product.getId());
