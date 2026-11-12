@@ -98,24 +98,22 @@ public class PolicyService implements PolicyApi {
     /**
      * Lists policies enriched with their customer and product details.
      *
+     * <p>Uses a constant number of queries regardless of the number of policies: one for the
+     * policies and one batch lookup each for customers and products.</p>
+     *
      * @return all persisted policies
+     * @throws ResourceNotFoundException if a policy refers to a missing customer or product
      */
     @Transactional(readOnly = true)
     public List<PolicyResponse> findAllResponses() {
         List<Policy> policies = repository.findAll();
-        Map<Long, CustomerSummary> customers = policies.stream()
-                .map(Policy::getCustomerId)
-                .distinct()
-                .map(customerApi::findById)
-                .collect(Collectors.toMap(CustomerSummary::id, Function.identity()));
-        Map<Long, ProductSummary> products = policies.stream()
-                .map(Policy::getProductId)
-                .distinct()
-                .map(productApi::findById)
-                .collect(Collectors.toMap(ProductSummary::id, Function.identity()));
+        Map<Long, CustomerSummary> customers = loadCustomers(policies);
+        Map<Long, ProductSummary> products = byId(
+                productApi.findByIds(policies.stream().map(Policy::getProductId).toList()), ProductSummary::id);
         return policies.stream()
-                .map(policy -> mapper.toResponse(policy, customers.get(policy.getCustomerId()),
-                        products.get(policy.getProductId())))
+                .map(policy -> mapper.toResponse(policy,
+                        require(customers, policy.getCustomerId(), "Customer"),
+                        require(products, policy.getProductId(), "Product")))
                 .toList();
     }
 
@@ -165,14 +163,31 @@ public class PolicyService implements PolicyApi {
     @Transactional(readOnly = true)
     public List<PolicySnapshot> getSnapshots(Collection<Long> ids) {
         List<Policy> policies = repository.findAllById(ids);
-        Map<Long, CustomerSummary> customers = policies.stream()
-                .map(Policy::getCustomerId)
-                .distinct()
-                .map(customerApi::findById)
-                .collect(Collectors.toMap(CustomerSummary::id, Function.identity()));
+        Map<Long, CustomerSummary> customers = loadCustomers(policies);
         return policies.stream()
-                .map(policy -> mapper.toSnapshot(policy, customers.get(policy.getCustomerId())))
+                .map(policy -> mapper.toSnapshot(policy, require(customers, policy.getCustomerId(), "Customer")))
                 .toList();
+    }
+
+    private Map<Long, CustomerSummary> loadCustomers(List<Policy> policies) {
+        return byId(customerApi.findByIds(policies.stream().map(Policy::getCustomerId).toList()),
+                CustomerSummary::id);
+    }
+
+    private static <T> Map<Long, T> byId(List<T> items, Function<T, Long> idOf) {
+        return items.stream().collect(Collectors.toMap(idOf, Function.identity()));
+    }
+
+    /**
+     * Keeps the previous behaviour of the single lookups: a dangling reference is reported as
+     * not found instead of producing a response with missing data.
+     */
+    private static <T> T require(Map<Long, T> items, Long id, String type) {
+        T item = items.get(id);
+        if (item == null) {
+            throw new ResourceNotFoundException(type, id);
+        }
+        return item;
     }
 
     /**
