@@ -18,6 +18,25 @@ logging:
 springdoc:
   swagger-ui:
     persist-authorization: true
+# Health endpoints for the Docker healthcheck. Only health and info are exposed,
+# without details; Caddy does not route /actuator, so they are reachable only
+# inside the container network.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      # /actuator/health/liveness and /actuator/health/readiness
+      probes:
+        enabled: true
+      group:
+        # Readiness includes the database, so the container only becomes "healthy"
+        # once the application has started (Flyway ran) and PostgreSQL answers.
+        readiness:
+          include: readinessState,db
 # Public demo logins. Each password defaults to the username in every profile; set
 # DEMO_*_PASSWORD environment variables to override them.
 insurance:
@@ -55,3 +74,9 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+# One JSON object per log line (Elastic Common Schema) in production, so logs can be
+# searched and filtered by level, logger or requestId (taken from the MDC).
+logging:
+  structured:
+    format:
+      console: ecs

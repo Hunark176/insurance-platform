@@ -41,6 +41,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/**").denyAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/error")
                         .permitAll()
+                        // Container healthcheck; only health/info are exposed and Caddy does not route /actuator.
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/demo-accounts").permitAll()
                         // Reads that still need a login; the required role is checked on the method.
                         .requestMatchers(HttpMethod.GET, "/api/auth/me", "/api/audit-trail/**", "/api/customers")
