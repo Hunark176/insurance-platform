@@ -2,6 +2,7 @@ package de.hunar.insurance.audit.controller;
 
 import de.hunar.insurance.audit.application.AuditTrailService;
 import de.hunar.insurance.audit.dto.AuditEntryResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,6 +35,8 @@ public class AuditTrailController {
      * @return paginated audit entries ordered by occurrence time descending
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     public Page<AuditEntryResponse> findForEntity(
             @RequestParam @NotBlank String entityType,
             @RequestParam @NotBlank String entityId,

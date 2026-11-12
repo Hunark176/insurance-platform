@@ -25,6 +25,10 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-insurance}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env file}
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:-customer}
+      DEMO_CLERK_PASSWORD: ${DEMO_CLERK_PASSWORD:-clerk}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-admin}
+      DEMO_PUBLISH_CREDENTIALS: ${DEMO_PUBLISH_CREDENTIALS:-true}
     depends_on:
       db:
         condition: service_healthy

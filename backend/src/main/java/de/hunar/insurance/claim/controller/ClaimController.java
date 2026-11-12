@@ -9,7 +9,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -26,7 +28,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/claims")
-@CrossOrigin(origins = "http://localhost:5173")
 @RequiredArgsConstructor
 @Tag(name = "Claims", description = "Schadenfälle verwalten")
 public class ClaimController {
@@ -82,8 +83,13 @@ public class ClaimController {
      * @return the created claim
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @Operation(summary = "Neuen Claim erstellen")
-    @ApiResponse(responseCode = "201", description = "Claim erfolgreich erstellt")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Claim erfolgreich erstellt"),
+            @ApiResponse(responseCode = "401", description = "Anmeldung erforderlich")
+    })
     @ResponseStatus(HttpStatus.CREATED)
     public ClaimResponse createClaim(
             @Parameter(description = "Claim-Daten zum Erstellen")
@@ -100,9 +106,13 @@ public class ClaimController {
      * @return the updated claim
      */
     @PatchMapping("/{id}/status")
-    @Operation(summary = "Status eines Claims aktualisieren")
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
+    @Operation(summary = "Status eines Claims aktualisieren (CLERK, ADMIN)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Status erfolgreich aktualisiert"),
+            @ApiResponse(responseCode = "401", description = "Anmeldung erforderlich"),
+            @ApiResponse(responseCode = "403", description = "Rolle CLERK oder ADMIN erforderlich"),
             @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
     })
     public ClaimResponse updateStatus(
