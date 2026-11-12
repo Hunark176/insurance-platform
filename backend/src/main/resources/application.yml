@@ -34,6 +34,8 @@ insurance:
       - username: customer
         password: ${DEMO_CUSTOMER_PASSWORD:customer}
         role: CUSTOMER
+        # Seeded demo customer (Anna Schneider); this login may only report claims for her policies.
+        customer-number: DEMO-1001
       - username: clerk
         password: ${DEMO_CLERK_PASSWORD:clerk}
         role: CLERK

@@ -1,5 +1,6 @@
 package de.hunar.insurance.claim.domain;
 
+import de.hunar.insurance.shared.domain.DomainException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -24,11 +25,11 @@ class ClaimDomainTest {
         Claim claim = newClaim();
 
         claim.transitionTo(ClaimStatus.IN_REVIEW);
-        claim.transitionTo(ClaimStatus.APPROVED);
+        claim.approve(new BigDecimal("1000.00"), true);
 
         assertThat(claim.getStatus()).isEqualTo(ClaimStatus.APPROVED);
         assertThatThrownBy(() -> claim.transitionTo(ClaimStatus.REJECTED))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Ungültiger Status-Übergang");
     }
 
@@ -36,11 +37,52 @@ class ClaimDomainTest {
     void claimCannotSkipReviewOrUseNullStatus() {
         Claim claim = newClaim();
 
-        assertThatThrownBy(() -> claim.transitionTo(ClaimStatus.APPROVED))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> claim.approve(new BigDecimal("1000.00"), true))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("Ungültiger Status-Übergang");
         assertThatThrownBy(() -> claim.transitionTo(null))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(DomainException.class);
         assertThat(claim.getStatus()).isEqualTo(ClaimStatus.RECEIVED);
+    }
+
+    @Test
+    void approvalCannotBypassTheCoverageRules() {
+        Claim claim = inReview();
+
+        assertThatThrownBy(() -> claim.transitionTo(ClaimStatus.APPROVED))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("approve()");
+        assertThat(claim.getStatus()).isEqualTo(ClaimStatus.IN_REVIEW);
+    }
+
+    @Test
+    void approvalRequiresCoverageOnTheLossDate() {
+        Claim claim = inReview();
+
+        assertThatThrownBy(() -> claim.approve(new BigDecimal("1000.00"), false))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("coverage on the date of loss");
+        assertThat(claim.getStatus()).isEqualTo(ClaimStatus.IN_REVIEW);
+    }
+
+    @Test
+    void approvalRequiresAnAmountWithinTheCoverageLimit() {
+        Claim claim = inReview();
+        BigDecimal limitBelowAmount = claim.getAmount().subtract(new BigDecimal("0.01"));
+
+        assertThatThrownBy(() -> claim.approve(limitBelowAmount, true))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("coverage limit");
+        assertThat(claim.getStatus()).isEqualTo(ClaimStatus.IN_REVIEW);
+
+        claim.approve(claim.getAmount(), true);
+        assertThat(claim.getStatus()).isEqualTo(ClaimStatus.APPROVED);
+    }
+
+    private Claim inReview() {
+        Claim claim = newClaim();
+        claim.transitionTo(ClaimStatus.IN_REVIEW);
+        return claim;
     }
 
     @Test

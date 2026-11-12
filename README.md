@@ -242,6 +242,11 @@ Im Frontend meldet man sich oben rechts über **Anmelden** mit einem Klick an.
 
 Ohne Anmeldung antwortet die API mit `401`, mit unzureichender Rolle mit `403`.
 
+Zusätzlich gilt eine Eigentumsprüfung: Der Login `customer` steht für den
+Demo-Kunden `DEMO-1001` und darf Schäden nur für dessen eigene Policen melden.
+Ein Versuch mit einer fremden Police wird mit `403` abgelehnt; Sachbearbeiter
+und Administratoren dürfen für alle Kunden erfassen.
+
 Beispiele für die Claim-Übersicht (öffentlich lesbar):
 
 ```text
