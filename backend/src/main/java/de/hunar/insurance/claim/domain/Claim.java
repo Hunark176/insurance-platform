@@ -25,7 +25,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -113,19 +113,19 @@ public class Claim {
     @Column(name = "created_at", nullable = false, updatable = false)
     @Schema(
             description = "Zeitpunkt der Erstellung in UTC",
-            example = "2026-09-24T17:00:00",
+            example = "2026-09-24T17:00:00Z",
             accessMode = Schema.AccessMode.READ_ONLY
     )
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     @Schema(
             description = "Zeitpunkt der letzten Änderung in UTC",
-            example = "2026-09-25T10:30:00",
+            example = "2026-09-25T10:30:00Z",
             accessMode = Schema.AccessMode.READ_ONLY
     )
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Version
     @Column(nullable = false)

@@ -6,7 +6,7 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.auditing.DateTimeProvider;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 
 @Configuration
@@ -18,7 +18,7 @@ public class AuditingConfig {
 
     @Bean
     DateTimeProvider auditingDateTimeProvider(Clock clock) {
-        return () -> Optional.of(LocalDateTime.now(clock));
+        return () -> Optional.of(Instant.now(clock));
     }
 
     @Bean
