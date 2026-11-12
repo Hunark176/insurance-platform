@@ -12,7 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 public abstract class PostgresContainerSupport {
     @Container
     protected static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
+            new PostgreSQLContainer<>("postgres:15-alpine")
                     .withDatabaseName("insurance")
                     .withUsername("insurance")
                     .withPassword("insurance");
