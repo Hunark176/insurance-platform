@@ -23,8 +23,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -70,8 +72,12 @@ public class PolicyService implements PolicyApi {
         if (!request.validTo().isAfter(request.validFrom())) {
             throw new DomainException("validTo must be after validFrom");
         }
+        // Product terms are copied to the policy, so later product changes do not alter existing contracts.
+        BigDecimal annualAggregateLimit = product.annualAggregateFactor() == null
+                ? null
+                : product.coverageLimit().multiply(BigDecimal.valueOf(product.annualAggregateFactor()));
         var policy = repository.save(new Policy(request.customerId(), request.productId(), request.validFrom(),
-                request.validTo(), product.coverageLimit(), product.premium()));
+                request.validTo(), product.coverageLimit(), product.premium(), annualAggregateLimit));
         AuditContext context = auditTrail.captureContext();
         auditTrail.record("CREATED", "POLICY", policy.getId().toString(), "status=ACTIVE", context);
         log.info("Policy issued: policyId={} customerId={} productId={}",
@@ -213,6 +219,20 @@ public class PolicyService implements PolicyApi {
         boolean covered = get(id).covers(lossDate);
         log.debug("Policy coverage checked: policyId={} lossDate={} covered={}", id, lossDate, covered);
         return covered;
+    }
+
+    /**
+     * Locks the policy row until the caller's transaction ends, see {@link PolicyApi#lockForClaimApproval}.
+     *
+     * @param id policy identifier
+     * @return snapshot of the locked policy
+     * @throws ResourceNotFoundException if the policy or its customer does not exist
+     */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public PolicySnapshot lockForClaimApproval(Long id) {
+        Policy policy = repository.findByIdForUpdate(id).orElseThrow(() -> new ResourceNotFoundException("Policy", id));
+        return mapper.toSnapshot(policy, customerApi.findById(policy.getCustomerId()));
     }
 
     private Policy get(Long id) {

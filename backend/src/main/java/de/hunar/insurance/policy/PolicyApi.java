@@ -40,4 +40,18 @@ public interface PolicyApi {
      * @throws de.hunar.insurance.shared.web.ResourceNotFoundException if the policy does not exist
      */
     boolean isCoveredOn(Long policyId, LocalDate lossDate);
+
+    /**
+     * Locks the policy for the rest of the caller's transaction and returns its snapshot.
+     *
+     * <p>Claim approval uses this before summing the amounts already approved in a policy
+     * year, so two concurrent approvals for the same policy cannot both pass the annual
+     * aggregate check. Must be called inside an existing transaction.</p>
+     *
+     * @param policyId policy identifier
+     * @return snapshot of the locked policy
+     * @throws de.hunar.insurance.shared.web.ResourceNotFoundException if the policy does not exist
+     * @throws org.springframework.transaction.IllegalTransactionStateException if no transaction is active
+     */
+    PolicySnapshot lockForClaimApproval(Long policyId);
 }

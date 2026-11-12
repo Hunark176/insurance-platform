@@ -11,6 +11,8 @@ import java.math.BigDecimal;
  * @param coverageLimit maximum covered amount
  * @param premium default premium
  * @param active whether the product can currently be issued
+ * @param annualAggregateFactor annual aggregate as multiple of the coverage limit; {@code null} = per-loss limit only
  */
-public record ProductSummary(Long id, String code, String name, BigDecimal coverageLimit, BigDecimal premium, boolean active) {
+public record ProductSummary(Long id, String code, String name, BigDecimal coverageLimit, BigDecimal premium,
+                             boolean active, Integer annualAggregateFactor) {
 }
