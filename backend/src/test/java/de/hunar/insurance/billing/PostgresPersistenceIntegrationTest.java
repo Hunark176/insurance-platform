@@ -5,6 +5,7 @@ import de.hunar.insurance.billing.domain.InvoiceRepository;
 import de.hunar.insurance.shared.domain.Money;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -23,8 +24,14 @@ import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+/**
+ * Runs all Flyway migrations against a real PostgreSQL and starts the application with
+ * {@code ddl-auto: validate}, so every JPA mapping (including the event outbox tables) must
+ * match the migrated schema. Skipped only locally without Docker, never in CI.
+ */
+@DisabledIf("de.hunar.insurance.support.DockerAvailability#skipLocallyWithoutDocker")
+@Testcontainers
+@SpringBootTest
 @ActiveProfiles("prod")
 class PostgresPersistenceIntegrationTest {
     @Container
@@ -56,7 +63,11 @@ class PostgresPersistenceIntegrationTest {
         Integer appliedMigrations = jdbcTemplate.queryForObject(
                 "select count(*) from flyway_schema_history where success = true",
                 Integer.class);
-        assertThat(appliedMigrations).isEqualTo(12);
+        assertThat(appliedMigrations).isEqualTo(13);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.tables where table_name in "
+                        + "('event_publication', 'event_publication_archive')",
+                Integer.class)).isEqualTo(2);
 
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.executeWithoutResult(status -> invoiceRepository.saveAndFlush(
