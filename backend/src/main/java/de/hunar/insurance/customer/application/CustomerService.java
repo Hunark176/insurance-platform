@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -64,6 +66,21 @@ public class CustomerService implements CustomerApi {
     @Transactional(readOnly = true)
     public CustomerSummary findById(Long id) {
         return mapper.toSummary(repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Customer", id)));
+    }
+
+    /**
+     * Resolves several customers with one {@code IN} query.
+     *
+     * @param ids customer identifiers; duplicates are ignored
+     * @return summaries for the customers found
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerSummary> findByIds(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllById(new HashSet<>(ids)).stream().map(mapper::toSummary).toList();
     }
 
     /**

@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -59,6 +61,21 @@ public class ProductService implements ProductApi {
     @Transactional(readOnly = true)
     public ProductSummary findById(Long id) {
         return mapper.toSummary(repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Product", id)));
+    }
+
+    /**
+     * Resolves several products with one {@code IN} query.
+     *
+     * @param ids product identifiers; duplicates are ignored
+     * @return summaries for the products found
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductSummary> findByIds(Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllById(new HashSet<>(ids)).stream().map(mapper::toSummary).toList();
     }
     /**
      * Checks whether a product exists.
