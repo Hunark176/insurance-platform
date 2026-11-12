@@ -7,5 +7,6 @@ import java.time.LocalDate;
 
 public record PolicyResponse(Long id, Long customerId, String customerNumber, String customerName,
                              Long productId, String productName, LocalDate validFrom, LocalDate validTo,
-                             BigDecimal coverageLimit, BigDecimal premium, PolicyStatus status) {
+                             BigDecimal coverageLimit, BigDecimal premium, PolicyStatus status,
+                             LocalDate cancelledOn) {
 }

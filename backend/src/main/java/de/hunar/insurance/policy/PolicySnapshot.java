@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * @param customerName customer display name
  * @param productId identifier of the issued product
  * @param validFrom first date of the policy term
- * @param validTo exclusive end date of the policy term
+ * @param validTo last date of the policy term (inclusive)
  * @param coverageLimit maximum amount covered by the policy
  */
 public record PolicySnapshot(

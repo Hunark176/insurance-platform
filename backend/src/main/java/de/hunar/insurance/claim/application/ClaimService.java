@@ -131,7 +131,7 @@ public class ClaimService {
         if (!policy.customerNumber().equals(request.customerNumber())) {
             throw new DomainException("Customer does not match the supplied policy");
         }
-        if (!policyApi.isActiveAt(request.policyId(), request.occurredOn())) {
+        if (!policyApi.isCoveredOn(request.policyId(), request.occurredOn())) {
             throw new DomainException("Policy did not provide coverage on the date of loss");
         }
         Claim claim = claimMapper.toEntity(request);
@@ -164,7 +164,7 @@ public class ClaimService {
             // The policy module supplies the facts; the Claim aggregate enforces the rules.
             PolicySnapshot policy = policyApi.getSnapshot(claim.getPolicyId());
             claim.approve(policy.coverageLimit().amount(),
-                    policyApi.isActiveAt(claim.getPolicyId(), claim.getOccurredOn()));
+                    policyApi.isCoveredOn(claim.getPolicyId(), claim.getOccurredOn()));
         } else {
             claim.transitionTo(newStatus);
         }

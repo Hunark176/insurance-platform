@@ -289,6 +289,26 @@ class InsurancePlatformApplicationTests {
                 .isEqualTo(ClaimStatus.RECEIVED);
     }
 
+    @Test
+    void openClaimCanStillBeApprovedAfterThePolicyIsCancelled() {
+        // Loss-occurrence principle: the loss happened while the policy was in force.
+        ClaimResponse claim = claimService.createClaimResponse(createTestRequest("Schaden vor dem Storno"));
+        claimService.updateClaim(claim.id(), ClaimStatus.IN_REVIEW);
+
+        policyService.cancel(claim.policyId(), null);
+
+        assertThat(claimService.updateClaim(claim.id(), ClaimStatus.APPROVED).getStatus())
+                .isEqualTo(ClaimStatus.APPROVED);
+    }
+
+    @Test
+    void lossBeforeTheCancellationCanStillBeReportedAfterwards() {
+        CreateClaimRequest request = createTestRequest("Nachmeldung nach Storno");
+        policyService.cancel(request.policyId(), null);
+
+        assertThat(claimService.createClaimResponse(request).status()).isEqualTo(ClaimStatus.RECEIVED);
+    }
+
 	@Test
 	void getClaimById_throwsExceptionForNonExistingId() {
 		// Given: Eine ID, die sicher nicht existiert
