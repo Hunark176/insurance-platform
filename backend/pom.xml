@@ -24,7 +24,9 @@
 	<properties>
 		<java.version>21</java.version>
 		<spring-modulith.version>1.4.4</spring-modulith.version>
-		<testcontainers.version>1.20.6</testcontainers.version>
+		<!-- 1.21.4+ negotiates the Docker API version; 1.20.x is rejected by
+		     current Docker Engines ("client version 1.32 is too old"). -->
+		<testcontainers.version>1.21.4</testcontainers.version>
 	</properties>
 
 	<dependencyManagement>
