@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Runs all Flyway migrations against a real PostgreSQL and starts the application with
- * {@code ddl-auto: validate}, so every JPA mapping must
+ * {@code ddl-auto: validate}, so every JPA mapping (including the event outbox tables) must
  * match the migrated schema. Skipped only locally without Docker, never in CI.
  */
 @DisabledIf("de.hunar.insurance.support.DockerAvailability#skipLocallyWithoutDocker")
@@ -63,7 +63,11 @@ class PostgresPersistenceIntegrationTest {
         Integer appliedMigrations = jdbcTemplate.queryForObject(
                 "select count(*) from flyway_schema_history where success = true",
                 Integer.class);
-        assertThat(appliedMigrations).isEqualTo(12);
+        assertThat(appliedMigrations).isEqualTo(13);
+        assertThat(jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.tables where table_name in "
+                        + "('event_publication', 'event_publication_archive')",
+                Integer.class)).isEqualTo(2);
 
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.executeWithoutResult(status -> invoiceRepository.saveAndFlush(
