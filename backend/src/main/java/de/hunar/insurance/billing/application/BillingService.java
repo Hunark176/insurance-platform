@@ -39,7 +39,7 @@ public class BillingService {
      * @param id payout identifier
      * @return the updated payout response
      * @throws ResourceNotFoundException if the payout does not exist
-     * @throws IllegalStateException if the payout is not in the {@code CREATED} state
+     * @throws de.hunar.insurance.shared.domain.DomainException if the payout is not in the {@code CREATED} state
      */
     @Transactional
     public PayoutResponse markPaid(Long id) {

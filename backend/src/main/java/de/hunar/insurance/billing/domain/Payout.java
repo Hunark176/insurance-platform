@@ -1,5 +1,6 @@
 package de.hunar.insurance.billing.domain;
 
+import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -80,7 +81,7 @@ public class Payout {
 
     public void markPaid() {
         if (status != PayoutStatus.CREATED) {
-            throw new IllegalStateException("Only a newly created payout can be paid");
+            throw new DomainException("Only a newly created payout can be paid");
         }
         status = PayoutStatus.EXECUTED;
     }

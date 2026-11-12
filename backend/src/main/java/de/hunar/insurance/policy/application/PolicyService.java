@@ -123,7 +123,7 @@ public class PolicyService implements PolicyApi {
      * @param id policy identifier
      * @return the cancelled policy response
      * @throws ResourceNotFoundException if the policy or its related customer/product is missing
-     * @throws IllegalStateException if the policy is not active
+     * @throws DomainException if the policy is not active
      */
     @Transactional
     public PolicyResponse cancel(Long id) {
