@@ -3,9 +3,11 @@ package de.hunar.insurance.product.controller;
 import de.hunar.insurance.product.application.ProductService;
 import de.hunar.insurance.product.dto.CreateProductRequest;
 import de.hunar.insurance.product.dto.ProductResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +33,8 @@ public class ProductController {
      * @param request product details
      * @return the created product
      */
+    @PreAuthorize("hasRole('ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public ProductResponse create(@Valid @RequestBody CreateProductRequest request) { return service.create(request); }
     /**

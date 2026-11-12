@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/utils/formatters'
-import type { Claim } from '@/types/claim'
+import { CLAIM_STATUS_LABELS, CLAIM_STATUS_STYLES } from '@/features/claims/claimStatus'
+import type { Claim, ClaimStatus } from '@/types/claim'
+import { ClaimActions } from './ClaimActions'
 
 interface ClaimTableProps {
   claims: Claim[]
@@ -16,6 +18,9 @@ interface ClaimTableProps {
   totalPages: number
   totalClaims: number
   onPageChange: (page: number) => void
+  updatingId: number | null
+  onStatusChange: (id: number, status: ClaimStatus) => void
+  onLoginRequired: () => void
 }
 
 export function ClaimTable({
@@ -32,6 +37,9 @@ export function ClaimTable({
   totalPages,
   totalClaims,
   onPageChange,
+  updatingId,
+  onStatusChange,
+  onLoginRequired,
 }: ClaimTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -128,6 +136,9 @@ export function ClaimTable({
                     </span>
                   </button>
                 </th>
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Status
+                </th>
                 <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Aktion
                 </th>
@@ -159,19 +170,20 @@ export function ClaimTable({
                       {formatCurrency(claim.amount)}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        console.debug('[InsurancePlatform]', {
-                          event: 'claim.details.requested',
-                          claimId: claim.id,
-                        })
-                      }
-                      className="rounded-lg px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50 hover:text-blue-700"
+                  <td className="whitespace-nowrap px-6 py-4">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${CLAIM_STATUS_STYLES[claim.status] ?? ''}`}
                     >
-                      Details →
-                    </button>
+                      {CLAIM_STATUS_LABELS[claim.status] ?? claim.status}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-right">
+                    <ClaimActions
+                      claim={claim}
+                      updating={updatingId === claim.id}
+                      onStatusChange={onStatusChange}
+                      onLoginRequired={onLoginRequired}
+                    />
                   </td>
                 </tr>
               ))}

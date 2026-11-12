@@ -1,8 +1,17 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { authStore } from '@/features/auth/authStore'
 
-type RequestConfigWithId = InternalAxiosRequestConfig & { requestId?: string }
+type RequestConfigWithId = InternalAxiosRequestConfig & {
+  requestId?: string
+  usedStoredSession?: boolean
+}
 
-const apiClient = axios.create({ baseURL: '/' })
+const apiClient = axios.create({
+  baseURL: '/',
+  // Makes Spring Security answer 401 without a WWW-Authenticate challenge,
+  // so the browser does not open its own Basic-auth dialog.
+  headers: { 'X-Requested-With': 'XMLHttpRequest' },
+})
 
 function createRequestId(): string {
   if (typeof crypto.randomUUID === 'function') {
@@ -39,6 +48,12 @@ apiClient.interceptors.request.use((config) => {
   requestConfig.requestId = createRequestId()
   config.headers.set('X-Request-Id', requestConfig.requestId)
 
+  const session = authStore.getSession()
+  if (session && !config.headers.has('Authorization')) {
+    config.headers.set('Authorization', `Basic ${session.token}`)
+    requestConfig.usedStoredSession = true
+  }
+
   if (import.meta.env.DEV) {
     console.debug('[InsurancePlatform]', {
       timestamp: new Date().toISOString(),
@@ -70,6 +85,11 @@ apiClient.interceptors.response.use(
   (error: unknown) => {
     if (axios.isAxiosError(error)) {
       logApiFailure(error)
+      const config = error.config as RequestConfigWithId | undefined
+      // Stored credentials are no longer valid (e.g. demo passwords changed): log out.
+      if (error.response?.status === 401 && config?.usedStoredSession) {
+        authStore.setSession(null)
+      }
     } else {
       console.error('[InsurancePlatform]', {
         timestamp: new Date().toISOString(),

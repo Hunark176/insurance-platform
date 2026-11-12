@@ -3,9 +3,11 @@ package de.hunar.insurance.policy.controller;
 import de.hunar.insurance.policy.application.PolicyService;
 import de.hunar.insurance.policy.dto.IssuePolicyRequest;
 import de.hunar.insurance.policy.dto.PolicyResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -33,6 +35,8 @@ public class PolicyController {
      * @param request policy issuance details
      * @return the issued policy
      */
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public PolicyResponse issue(@Valid @RequestBody IssuePolicyRequest request) { return service.issue(request); }
     /**
@@ -49,6 +53,8 @@ public class PolicyController {
      * @param id policy identifier
      * @return the cancelled policy
      */
+    @PreAuthorize("hasAnyRole('CLERK', 'ADMIN')")
+    @SecurityRequirement(name = "basicAuth")
     @PostMapping("/{id}/cancel")
     public PolicyResponse cancel(@PathVariable Long id) { return service.cancel(id); }
 }

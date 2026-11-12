@@ -32,13 +32,20 @@ class AuditTrailControllerTest {
     private AuditTrailService service;
 
     @Test
-    void anonymousCallersMayQueryAuditHistory() throws Exception {
-        when(service.findForEntity(eq("CLAIM"), eq("42"), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(Page.empty(PageRequest.of(0, 50)));
-
+    void anonymousCallersMayNotQueryAuditHistory() throws Exception {
         mockMvc.perform(get("/api/audit-trail").param("entityType", "CLAIM").param("entityId", "42"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isEmpty());
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    @WithMockUser(username = "clerk", roles = "CLERK")
+    void clerksMayNotQueryAuditHistory() throws Exception {
+        mockMvc.perform(get("/api/audit-trail").param("entityType", "CLAIM").param("entityId", "42"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(service);
     }
 
     @Test

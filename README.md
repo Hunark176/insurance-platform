@@ -152,6 +152,10 @@ password before the first deployment:
 ```dotenv
 DOMAIN=app.example.com
 POSTGRES_PASSWORD=replace-with-a-long-random-password
+# Optional: demo logins default to customer/customer, clerk/clerk, admin/admin
+# DEMO_ADMIN_PASSWORD=admin
+# Optional: set to false to hide the demo credentials from Swagger and the frontend
+# DEMO_PUBLISH_CREDENTIALS=true
 ```
 
 Compose defaults to the `ghcr.io/hunark176/insurance-platform` image prefix and
@@ -184,10 +188,12 @@ wiederhergestellt werden. Das PostgreSQL-Volume nicht mit `docker compose down
 -v` löschen.
 
 Die Portfolio-API ist öffentlich aufrufbar, damit Interessierte die Funktionen
-direkt über Swagger ausprobieren können. Schreibende API-Aufrufe benötigen
-keine Anmeldung; HTTP-DELETE-Aufrufe auf `/api/**` sind serverseitig gesperrt.
-Die Umgebung darf deshalb ausschließlich mit synthetischen Demo-Daten betrieben
-werden. Sie ist nicht für echte Kunden- oder Versicherungsdaten geeignet.
+direkt über Swagger ausprobieren können. Lesende Aufrufe sind ohne Anmeldung
+möglich, schreibende Aufrufe erfordern einen Demo-Zugang (siehe
+[Zugriff und Rollen](#zugriff-und-rollen)). HTTP-DELETE-Aufrufe auf `/api/**`
+sind serverseitig gesperrt. Da die Demo-Zugänge öffentlich sind, darf die
+Umgebung ausschließlich mit synthetischen Demo-Daten betrieben werden. Sie ist
+nicht für echte Kunden- oder Versicherungsdaten geeignet.
 
 ## Qualitätssicherung
 
@@ -217,7 +223,26 @@ Swagger öffentlich: <https://insurance.hunarkarim.de/swagger-ui.html>
 Die OpenAPI-Beschreibung liegt unter
 <https://insurance.hunarkarim.de/v3/api-docs>.
 
-Beispiele für die Claim-Übersicht (Authentifizierung erforderlich):
+### Zugriff und Rollen
+
+Die API nutzt HTTP Basic. In Swagger über **Authorize** anmelden; die
+Demo-Zugänge stehen in der API-Beschreibung oben in Swagger und unter
+`GET /api/auth/demo-accounts`. Standardmäßig ist das Passwort jeweils der
+Benutzername: `customer` / `customer`, `clerk` / `clerk`, `admin` / `admin`.
+Im Frontend meldet man sich oben rechts über **Anmelden** mit einem Klick an.
+
+| Aktion                                                    | Berechtigung               |
+| --------------------------------------------------------- | -------------------------- |
+| Policen, Claims, Produkte, Payouts lesen                  | öffentlich                 |
+| Schaden melden (`POST /api/claims`)                       | `CUSTOMER`, `CLERK`, `ADMIN` |
+| Claim-Status ändern, Police ausstellen/stornieren         | `CLERK`, `ADMIN`           |
+| Kunden auflisten/anlegen, Underwriting-Prüfung            | `CLERK`, `ADMIN`           |
+| Produkt anlegen, Auszahlung ausführen, Audit-Trail lesen  | `ADMIN`                    |
+| `DELETE /api/**`                                          | gesperrt                   |
+
+Ohne Anmeldung antwortet die API mit `401`, mit unzureichender Rolle mit `403`.
+
+Beispiele für die Claim-Übersicht (öffentlich lesbar):
 
 ```text
 GET /api/claims?page=0&size=20

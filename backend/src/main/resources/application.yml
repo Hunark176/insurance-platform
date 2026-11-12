@@ -10,6 +10,24 @@ logging:
       max-file-size: 10MB
       max-history: 14
       total-size-cap: 100MB
+springdoc:
+  swagger-ui:
+    persist-authorization: true
+# Public demo logins. Each password defaults to the username in every profile; set
+# DEMO_*_PASSWORD environment variables to override them.
+insurance:
+  security:
+    publish-credentials: ${DEMO_PUBLISH_CREDENTIALS:true}
+    users:
+      - username: customer
+        password: ${DEMO_CUSTOMER_PASSWORD:customer}
+        role: CUSTOMER
+      - username: clerk
+        password: ${DEMO_CLERK_PASSWORD:clerk}
+        role: CLERK
+      - username: admin
+        password: ${DEMO_ADMIN_PASSWORD:admin}
+        role: ADMIN
 ---
 spring:
   config:
