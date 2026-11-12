@@ -1,5 +1,8 @@
 package de.hunar.insurance.customer;
 
+import java.util.Collection;
+import java.util.List;
+
 /**
  * Public customer-module contract for other application modules.
  *
@@ -14,6 +17,15 @@ public interface CustomerApi {
      * @throws de.hunar.insurance.shared.web.ResourceNotFoundException if the customer does not exist
      */
     CustomerSummary findById(Long customerId);
+
+    /**
+     * Loads several customers with a single query; use this instead of calling
+     * {@link #findById(Long)} in a loop.
+     *
+     * @param customerIds customer identifiers; duplicates are allowed
+     * @return summaries for the customers found; unknown identifiers are omitted
+     */
+    List<CustomerSummary> findByIds(Collection<Long> customerIds);
 
     /**
      * Finds a customer by the externally visible customer number.
