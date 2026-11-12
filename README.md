@@ -41,7 +41,7 @@ Portfolio- und Lernprojekt, keine produktionsfertige Versicherungsplattform.
 | API und Validierung | REST, OpenAPI/Swagger, Jakarta Bean Validation                        |
 | Datenbanken         | H2 für Entwicklung und Tests; PostgreSQL mit Flyway im Profil `local` |
 | Frontend            | React 19, TypeScript, Vite, Tailwind CSS                              |
-| Qualitätssicherung  | Maven, JUnit, Mockito, ESLint, GitHub Actions                         |
+| Qualitätssicherung  | Maven, JUnit, Mockito, Testcontainers, Vitest, ESLint, GitHub Actions |
 | Container           | Docker und Docker Compose                                             |
 
 ## Architektur
@@ -199,7 +199,9 @@ nicht für echte Kunden- oder Versicherungsdaten geeignet.
 
 ```powershell
 npm run lint
-npm run build
+npm run format:check
+npm run test:frontend   # Vitest + Testing Library
+npm run build           # inklusive Typprüfung (tsc -b)
 npm run test:backend
 ```
 
@@ -211,8 +213,8 @@ werden:
 bash backend/mvnw -f backend/pom.xml test
 ```
 
-Die GitHub-Actions-CI führt Frontend-Linting und -Build sowie `mvn verify` für
-das Backend aus.
+Die GitHub-Actions-CI führt für das Frontend Linting, Format-Prüfung, Tests und
+den Build mit Typprüfung aus, für das Backend `mvn verify`.
 
 ## API ausprobieren
 
