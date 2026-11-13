@@ -32,11 +32,14 @@ public record DemoUserProperties(@NotEmpty List<@Valid DemoUser> users, boolean 
      * @param username login name
      * @param password raw password; encoded on startup
      * @param role one of {@link Roles}
+     * @param customerNumber customer this login represents; only relevant for the CUSTOMER role,
+     *                       see {@link CustomerAccessPolicy}
      */
     public record DemoUser(
             @NotBlank String username,
             @NotBlank String password,
-            @NotBlank @Pattern(regexp = Roles.CUSTOMER + "|" + Roles.CLERK + "|" + Roles.ADMIN) String role
+            @NotBlank @Pattern(regexp = Roles.CUSTOMER + "|" + Roles.CLERK + "|" + Roles.ADMIN) String role,
+            String customerNumber
     ) {
     }
 }

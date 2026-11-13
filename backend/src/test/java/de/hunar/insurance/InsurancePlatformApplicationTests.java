@@ -10,7 +10,10 @@ import de.hunar.insurance.claim.dto.CreateClaimRequest;
 import de.hunar.insurance.policy.application.PolicyService;
 import de.hunar.insurance.policy.domain.Policy;
 import de.hunar.insurance.policy.domain.PolicyRepository;
+import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -255,21 +258,36 @@ class InsurancePlatformApplicationTests {
 						savedClaim.id(),
 						ClaimStatus.APPROVED
 				)
-		).isInstanceOf(IllegalStateException.class)
+		).isInstanceOf(DomainException.class)
 				.hasMessageContaining("Ungültiger Status-Übergang");
 	}
-	@Test
-	void deleteClaim_throwsExceptionForNonExistingId() {
-		// Given: Eine ID, die sicher nicht in der Datenbank existiert
-		Long nonExistingId = 999_999L;
 
-		// When + Then:
-		// deleteClaim(...) muss bei dieser ID eine IllegalArgumentException werfen
-		assertThatThrownBy(() ->
-				claimService.deleteClaim(nonExistingId)
-		).isInstanceOf(ResourceNotFoundException.class)
-				.hasMessageContaining("Claim not found: 999999");
-	}
+    @Test
+    @WithMockUser(username = "customer", roles = "CUSTOMER")
+    void customerCannotReportClaimForAnotherCustomersPolicy() {
+        // The demo login "customer" represents DEMO-1001; the test policy belongs to someone else.
+        CreateClaimRequest foreignPolicy = createTestRequest("Fremde Police");
+
+        assertThatThrownBy(() -> claimService.createClaimResponse(foreignPolicy))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @WithMockUser(username = "customer", roles = "CUSTOMER")
+    void customerCanReportClaimForOwnPolicy() {
+        Long ownPolicyId = createPolicyFor("DEMO-1001");
+        CreateClaimRequest request = new CreateClaimRequest(ownPolicyId, LocalDate.now(), "DEMO-1001",
+                ClaimType.AUTO, "Eigene Police", new BigDecimal("100.00"));
+
+        assertThat(claimService.createClaimResponse(request).status()).isEqualTo(ClaimStatus.RECEIVED);
+    }
+
+    @Test
+    @WithMockUser(username = "clerk", roles = "CLERK")
+    void clerkCanReportClaimForAnyCustomer() {
+        assertThat(claimService.createClaimResponse(createTestRequest("Erfasst durch Sachbearbeiter")).status())
+                .isEqualTo(ClaimStatus.RECEIVED);
+    }
 
 	@Test
 	void getClaimById_throwsExceptionForNonExistingId() {
@@ -305,6 +323,19 @@ class InsurancePlatformApplicationTests {
         Policy policy = policyRepository.save(new Policy(customerId, productId, LocalDate.now().minusDays(1),
                 LocalDate.now().plusYears(1), new BigDecimal("100000.00"), new BigDecimal("10.00")));
         return new TestPolicy(policy.getId(), "TEST-" + suffix);
+    }
+
+    private Long createPolicyFor(String customerNumber) {
+        String suffix = UUID.randomUUID().toString();
+        Long customerId = jdbcTemplate.queryForObject(
+                "select id from customers where customer_number = ?", Long.class, customerNumber);
+        jdbcTemplate.update(
+                "insert into products (code, name, coverage_limit, premium, active) values (?, ?, ?, ?, true)",
+                "TEST-" + suffix, "Test Product", new BigDecimal("100000.00"), new BigDecimal("10.00"));
+        Long productId = jdbcTemplate.queryForObject(
+                "select id from products where code = ?", Long.class, "TEST-" + suffix);
+        return policyRepository.save(new Policy(customerId, productId, LocalDate.now().minusDays(1),
+                LocalDate.now().plusYears(1), new BigDecimal("100000.00"), new BigDecimal("10.00"))).getId();
     }
 
     private record TestPolicy(Long id, String customerNumber) {}

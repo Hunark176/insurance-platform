@@ -2,6 +2,7 @@ package de.hunar.insurance.policy;
 
 import de.hunar.insurance.policy.domain.Policy;
 import de.hunar.insurance.policy.domain.PolicyStatus;
+import de.hunar.insurance.shared.domain.DomainException;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -38,7 +39,7 @@ class PolicyDomainTest {
         policy.cancel();
 
         assertThatThrownBy(policy::cancel)
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Only an active policy");
     }
 

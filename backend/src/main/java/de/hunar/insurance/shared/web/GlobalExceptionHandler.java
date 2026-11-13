@@ -34,7 +34,13 @@ public class GlobalExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Access is denied");
     }
 
-    @ExceptionHandler({DomainException.class, IllegalStateException.class, IllegalArgumentException.class})
+    /**
+     * Business rule violations (DomainException) and entity invariant checks on input values
+     * (IllegalArgumentException) are client errors. IllegalStateException is deliberately not
+     * mapped here: business state transitions throw DomainException, so an IllegalStateException
+     * indicates a programming error and is reported as 500 by {@link #handleUnexpectedFailure}.
+     */
+    @ExceptionHandler({DomainException.class, IllegalArgumentException.class})
     ProblemDetail handleDomainError(RuntimeException exception) {
         log.warn("Request rejected by a business rule: {}", exception.getMessage());
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, exception.getMessage());

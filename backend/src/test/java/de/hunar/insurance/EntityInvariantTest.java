@@ -10,6 +10,7 @@ import de.hunar.insurance.customer.domain.Customer;
 import de.hunar.insurance.policy.domain.Policy;
 import de.hunar.insurance.policy.domain.PolicyStatus;
 import de.hunar.insurance.product.domain.Product;
+import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -88,7 +89,7 @@ class EntityInvariantTest {
         payout.markPaid();
 
         assertThat(payout.getStatus()).isEqualTo(PayoutStatus.EXECUTED);
-        assertThatThrownBy(payout::markPaid).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(payout::markPaid).isInstanceOf(DomainException.class);
         assertThat(Invoice.create(1L, 1L, Money.eur(BigDecimal.ZERO)).getStatus())
                 .isEqualTo(InvoiceStatus.OPEN);
         assertThat(new Policy(1L, 1L, LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1),
