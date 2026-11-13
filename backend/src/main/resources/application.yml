@@ -16,6 +16,8 @@ logging:
       max-history: 14
       total-size-cap: 100MB
 springdoc:
+  # Stable key order, so the exported contract (frontend/openapi.json) diffs cleanly.
+  writer-with-order-by-keys: true
   swagger-ui:
     persist-authorization: true
 # Health endpoints for the Docker healthcheck. Only health and info are exposed,

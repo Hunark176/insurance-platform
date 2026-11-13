@@ -37,6 +37,7 @@ public record ClaimResponse(
         String claimType,
 
         @Schema(
+                types = {"string", "null"},
                 description = "Detaillierte Schadensbeschreibung",
                 example = "Kratzer an der linken Fahrzeugtür"
         )

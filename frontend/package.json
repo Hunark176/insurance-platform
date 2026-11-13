@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:api-types": "npx --yes openapi-typescript@7.13.0 openapi.json --output src/api/generated/schema.ts --properties-required-by-default"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
