@@ -37,3 +37,35 @@ jobs:
           java-version: '21'
           cache: maven
       - run: bash backend/mvnw -f backend/pom.xml verify
+
+  # Pull requests only: build the backend image and start it, so Dockerfile and
+  # healthcheck problems surface before merge. On main, "Build & Deploy" builds
+  # the images itself right after this workflow.
+  backend-image:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build backend image
+        run: docker build -t insurance-backend:ci .
+      - name: Start container with the in-memory dev profile
+        run: |
+          docker run -d --name backend -p 8080:8080 \
+            -e SPRING_PROFILES_ACTIVE=dev \
+            -e INSURANCE_DEV_H2_TCP_ENABLED=false \
+            insurance-backend:ci
+      - name: Wait until the Docker healthcheck reports healthy
+        run: |
+          for attempt in $(seq 1 40); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' backend)
+            echo "attempt $attempt: $status"
+            if [ "$status" = "healthy" ]; then exit 0; fi
+            if [ "$status" = "unhealthy" ]; then break; fi
+            sleep 5
+          done
+          docker logs backend | tail -50
+          exit 1
+      - name: Verify the process does not run as root
+        run: test "$(docker exec backend id -u)" != "0"
+      - name: Smoke-test the public API
+        run: curl -fsS http://localhost:8080/api/claims?size=1 >/dev/null
