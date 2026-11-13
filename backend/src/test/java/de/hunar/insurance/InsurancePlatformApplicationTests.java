@@ -61,6 +61,9 @@ class InsurancePlatformApplicationTests {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     @Test
     void contextLoads() {
     }
@@ -145,6 +148,16 @@ class InsurancePlatformApplicationTests {
         assertThat(savedClaim.status()).isEqualTo(ClaimStatus.RECEIVED);
         assertThat(savedClaim.createdAt()).isNotNull();
         assertThat(savedClaim.occurredOn()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
+    void claimTimestampsAreSerializedAsUtcInstants() throws Exception {
+        ClaimResponse savedClaim = claimService.createClaimResponse(createTestRequest("JUnit-Test: UTC-Zeitstempel"));
+
+        String json = objectMapper.writeValueAsString(savedClaim);
+
+        // A trailing "Z" makes clients interpret the value as UTC instead of local time.
+        assertThat(json).containsPattern("\"createdAt\":\"\\d{4}-\\d{2}-\\d{2}T[0-9:.]+Z\"");
     }
 
     @Test

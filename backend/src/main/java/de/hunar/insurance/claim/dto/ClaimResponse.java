@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Schema(description = "Antwortdaten eines Schadenfalls")
 public record ClaimResponse(
@@ -56,9 +56,9 @@ public record ClaimResponse(
 
         @Schema(
                 description = "Zeitpunkt der Erstellung",
-                example = "2026-09-24T17:00:00"
+                example = "2026-09-24T17:00:00Z"
         )
-        LocalDateTime createdAt,
+        Instant createdAt,
 
         @Schema(description = "Datum des Schadenereignisses", example = "2026-09-20")
         LocalDate occurredOn
