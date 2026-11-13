@@ -11,6 +11,7 @@ import de.hunar.insurance.claim.events.ClaimApprovedEvent;
 import de.hunar.insurance.claim.mapper.ClaimMapper;
 import de.hunar.insurance.policy.PolicyApi;
 import de.hunar.insurance.policy.PolicySnapshot;
+import de.hunar.insurance.policy.PolicyYear;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.security.CustomerAccessPolicy;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -131,7 +133,7 @@ public class ClaimService {
         if (!policy.customerNumber().equals(request.customerNumber())) {
             throw new DomainException("Customer does not match the supplied policy");
         }
-        if (!policyApi.isActiveAt(request.policyId(), request.occurredOn())) {
+        if (!policyApi.isCoveredOn(request.policyId(), request.occurredOn())) {
             throw new DomainException("Policy did not provide coverage on the date of loss");
         }
         Claim claim = claimMapper.toEntity(request);
@@ -161,10 +163,13 @@ public class ClaimService {
         // Fail fast on invalid transitions before querying the policy module.
         claim.assertCanTransitionTo(newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
+            // Lock the policy first: concurrent approvals for the same policy then run one after
+            // another, and each one sees the amounts approved by the others.
+            PolicySnapshot policy = policyApi.lockForClaimApproval(claim.getPolicyId());
+            boolean covered = policyApi.isCoveredOn(claim.getPolicyId(), claim.getOccurredOn());
             // The policy module supplies the facts; the Claim aggregate enforces the rules.
-            PolicySnapshot policy = policyApi.getSnapshot(claim.getPolicyId());
-            claim.approve(policy.coverageLimit().amount(),
-                    policyApi.isActiveAt(claim.getPolicyId(), claim.getOccurredOn()));
+            claim.approve(policy.coverageLimit().amount(), covered,
+                    covered ? remainingAnnualAggregate(policy, claim.getOccurredOn()) : null);
         } else {
             claim.transitionTo(newStatus);
         }
@@ -196,6 +201,23 @@ public class ClaimService {
     public ClaimResponse updateClaimResponse(Long id, ClaimStatus newStatus) {
         Claim claim = updateClaim(id, newStatus);
         return claimMapper.toResponse(claim, policyApi.getSnapshot(claim.getPolicyId()));
+    }
+
+    /**
+     * Calculates how much of the annual aggregate is still available in the policy year of the
+     * loss. Claims count towards the year of their loss date, not of their approval.
+     *
+     * @return the remaining amount, or {@code null} if the policy has no annual aggregate
+     */
+    private BigDecimal remainingAnnualAggregate(PolicySnapshot policy, LocalDate lossDate) {
+        return policy.annualAggregate()
+                .map(limit -> {
+                    PolicyYear year = policy.policyYearOf(lossDate);
+                    BigDecimal alreadyApproved = claimRepository.sumApprovedAmount(
+                            policy.id(), year.start(), year.end());
+                    return limit.amount().subtract(alreadyApproved);
+                })
+                .orElse(null);
     }
 
     private PolicySnapshot requirePolicy(Map<Long, PolicySnapshot> policies, Long policyId) {

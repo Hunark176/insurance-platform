@@ -13,6 +13,7 @@ import de.hunar.insurance.claim.events.ClaimApprovedEvent;
 import de.hunar.insurance.claim.mapper.ClaimMapper;
 import de.hunar.insurance.policy.PolicyApi;
 import de.hunar.insurance.policy.PolicySnapshot;
+import de.hunar.insurance.policy.PolicyYear;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
 import de.hunar.insurance.shared.security.CustomerAccessPolicy;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -64,7 +66,7 @@ class ClaimServiceTest {
     private final LocalDate lossDate = LocalDate.of(2026, 9, 20);
     private final PolicySnapshot policy = new PolicySnapshot(10L, 20L, "C-20", "Test Customer", 30L,
             lossDate.minusMonths(1), lossDate.plusMonths(1),
-            Money.eur(new BigDecimal("100000.00")));
+            Money.eur(new BigDecimal("100000.00")), null);
 
     @BeforeEach
     void setUp() {
@@ -83,7 +85,7 @@ class ClaimServiceTest {
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("own policies");
-        verify(policyApi, never()).isActiveAt(any(), any());
+        verify(policyApi, never()).isCoveredOn(any(), any());
         verifyNoInteractions(claimRepository);
     }
 
@@ -94,7 +96,7 @@ class ClaimServiceTest {
                 request.description(), request.amount());
         ReflectionTestUtils.setField(claim, "id", 1L);
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
         when(claimMapper.toEntity(request)).thenReturn(claim);
         when(claimRepository.save(claim)).thenReturn(claim);
         when(claimMapper.toResponse(claim, policy)).thenReturn(
@@ -147,7 +149,7 @@ class ClaimServiceTest {
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("Customer does not match");
-        verify(policyApi, never()).isActiveAt(any(), any());
+        verify(policyApi, never()).isCoveredOn(any(), any());
         verifyNoInteractions(claimRepository);
     }
 
@@ -155,7 +157,7 @@ class ClaimServiceTest {
     void createClaimRejectsLossOutsidePolicyCoveragePeriod() {
         CreateClaimRequest request = validRequest();
         when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(false);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(false);
 
         assertThatThrownBy(() -> claimService.createClaimResponse(request))
                 .isInstanceOf(DomainException.class)
@@ -187,8 +189,8 @@ class ClaimServiceTest {
     void approvalRequiresCoveredLossAndAmountWithinLimit() {
         Claim claim = reviewClaim(new BigDecimal("500.00"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
-        when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(policy);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
         when(claimRepository.save(claim)).thenReturn(claim);
 
         Claim result = claimService.updateClaim(7L, ClaimStatus.APPROVED);
@@ -204,8 +206,8 @@ class ClaimServiceTest {
     void approvalRejectsAmountAboveCoverageLimit() {
         Claim claim = reviewClaim(new BigDecimal("100000.01"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
-        when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(true);
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(policy);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
 
         assertThatThrownBy(() -> claimService.updateClaim(7L, ClaimStatus.APPROVED))
                 .isInstanceOf(DomainException.class)
@@ -218,14 +220,72 @@ class ClaimServiceTest {
     void approvalRejectsPolicyWithoutCoverageAtLossDate() {
         Claim claim = reviewClaim(new BigDecimal("500.00"));
         when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
-        when(policyApi.getSnapshot(policy.id())).thenReturn(policy);
-        when(policyApi.isActiveAt(policy.id(), lossDate)).thenReturn(false);
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(policy);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(false);
 
         assertThatThrownBy(() -> claimService.updateClaim(7L, ClaimStatus.APPROVED))
                 .isInstanceOf(DomainException.class)
                 .hasMessageContaining("did not provide coverage");
         verify(claimRepository, never()).save(any());
         verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void approvalRejectsAmountAboveTheRemainingAnnualAggregate() {
+        PolicySnapshot liability = withAnnualAggregate("150000.00");
+        PolicyYear year = liability.policyYearOf(lossDate);
+        Claim claim = reviewClaim(new BigDecimal("60000.00"));
+        when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(liability);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
+        when(claimRepository.sumApprovedAmount(policy.id(), year.start(), year.end()))
+                .thenReturn(new BigDecimal("100000.00"));
+
+        assertThatThrownBy(() -> claimService.updateClaim(7L, ClaimStatus.APPROVED))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("remaining annual aggregate")
+                .hasMessageContaining("50000.00 EUR left");
+        verify(claimRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void approvalWithinTheAnnualAggregateLocksThePolicyBeforeSumming() {
+        PolicySnapshot liability = withAnnualAggregate("150000.00");
+        PolicyYear year = liability.policyYearOf(lossDate);
+        Claim claim = reviewClaim(new BigDecimal("50000.00"));
+        when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(liability);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
+        when(claimRepository.sumApprovedAmount(policy.id(), year.start(), year.end()))
+                .thenReturn(new BigDecimal("100000.00"));
+        when(claimRepository.save(claim)).thenReturn(claim);
+
+        assertThat(claimService.updateClaim(7L, ClaimStatus.APPROVED).getStatus()).isEqualTo(ClaimStatus.APPROVED);
+
+        // The sum is only meaningful while the policy is locked against concurrent approvals.
+        InOrder order = inOrder(policyApi, claimRepository);
+        order.verify(policyApi).lockForClaimApproval(policy.id());
+        order.verify(claimRepository).sumApprovedAmount(policy.id(), year.start(), year.end());
+    }
+
+    @Test
+    void policiesWithoutAnnualAggregateDoNotSumPreviousClaims() {
+        Claim claim = reviewClaim(new BigDecimal("500.00"));
+        when(claimRepository.findById(7L)).thenReturn(Optional.of(claim));
+        when(policyApi.lockForClaimApproval(policy.id())).thenReturn(policy);
+        when(policyApi.isCoveredOn(policy.id(), lossDate)).thenReturn(true);
+        when(claimRepository.save(claim)).thenReturn(claim);
+
+        claimService.updateClaim(7L, ClaimStatus.APPROVED);
+
+        verify(claimRepository, never()).sumApprovedAmount(any(), any(), any());
+    }
+
+    private PolicySnapshot withAnnualAggregate(String limit) {
+        return new PolicySnapshot(policy.id(), policy.customerId(), policy.customerNumber(), policy.customerName(),
+                policy.productId(), policy.validFrom(), policy.validTo(), policy.coverageLimit(),
+                Money.eur(new BigDecimal(limit)));
     }
 
     private CreateClaimRequest validRequest() {

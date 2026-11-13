@@ -11,6 +11,7 @@ Architektur- und API-Dokumentation der Insurance Platform.
 - [Architekturentscheidungen (ADRs)](adr/0001-modularer-monolith.md)
 - [ADR 0003: Persistenzzugriff im Fachmodul](adr/0003-persistenzzugriff-im-domain-modul.md)
 - [ADR 0004: Bestehende Claims sicher an Policen anbinden](adr/0004-claim-policy-migration.md)
+- [ADR 0005: Deckungsregeln – Schadenereignisprinzip und Jahreshöchstleistung](adr/0005-deckungsregeln.md)
 
 Die ausführliche Architekturdokumentation enthält die System- und
 Moduldiagramme als SVG. Eine PDF-Ausgabe wird daneben bereitgestellt.

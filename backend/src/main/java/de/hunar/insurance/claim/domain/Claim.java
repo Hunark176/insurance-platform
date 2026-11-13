@@ -25,6 +25,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Instant;
 import java.util.Objects;
@@ -220,17 +221,29 @@ public class Claim {
     }
 
     /**
+     * Approves the claim for a policy without an annual aggregate limit.
+     *
+     * @see #approve(BigDecimal, boolean, BigDecimal)
+     */
+    public void approve(BigDecimal coverageLimit, boolean coveredOnLossDate) {
+        approve(coverageLimit, coveredOnLossDate, null);
+    }
+
+    /**
      * Approves the claim after checking the coverage rules of the underlying policy.
      *
      * <p>The policy data is supplied by the caller because it belongs to the policy module;
      * the rules themselves are enforced here so every approval path applies them.</p>
      *
-     * @param coverageLimit maximum amount covered by the policy
-     * @param coveredOnLossDate whether the policy was active on {@link #getOccurredOn()}
+     * @param coverageLimit maximum amount covered per loss
+     * @param coveredOnLossDate whether the policy covered {@link #getOccurredOn()}
+     * @param remainingAnnualAggregate amount still available in the policy year of the loss
+     *                                 (annual aggregate minus claims already approved), or
+     *                                 {@code null} if the policy has no annual aggregate
      * @throws DomainException if the claim is not in review, the policy did not cover the loss
-     *                         date, or the amount exceeds the coverage limit
+     *                         date, or the amount exceeds the per-loss or the annual limit
      */
-    public void approve(BigDecimal coverageLimit, boolean coveredOnLossDate) {
+    public void approve(BigDecimal coverageLimit, boolean coveredOnLossDate, BigDecimal remainingAnnualAggregate) {
         Objects.requireNonNull(coverageLimit, "coverageLimit must not be null");
         assertCanTransitionTo(ClaimStatus.APPROVED);
         if (!coveredOnLossDate) {
@@ -238,6 +251,11 @@ public class Claim {
         }
         if (amount.compareTo(coverageLimit) > 0) {
             throw new DomainException("Claim amount exceeds the policy coverage limit");
+        }
+        if (remainingAnnualAggregate != null && amount.compareTo(remainingAnnualAggregate) > 0) {
+            throw new DomainException("Claim amount exceeds the remaining annual aggregate of the policy ("
+                    + remainingAnnualAggregate.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP)
+                    + " EUR left in this policy year)");
         }
         status = ClaimStatus.APPROVED;
     }

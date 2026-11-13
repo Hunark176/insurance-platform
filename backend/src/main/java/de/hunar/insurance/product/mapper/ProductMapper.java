@@ -8,9 +8,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class ProductMapper {
     public ProductResponse toResponse(Product p) {
-        return new ProductResponse(p.getId(), p.getCode(), p.getName(), p.getCoverageLimit(), p.getPremium(), p.isActive());
+        return new ProductResponse(p.getId(), p.getCode(), p.getName(), p.getCoverageLimit(), p.getPremium(), p.isActive(),
+                p.getAnnualAggregateFactor());
     }
     public ProductSummary toSummary(Product p) {
-        return new ProductSummary(p.getId(), p.getCode(), p.getName(), p.getCoverageLimit(), p.getPremium(), p.isActive());
+        return new ProductSummary(p.getId(), p.getCode(), p.getName(), p.getCoverageLimit(), p.getPremium(), p.isActive(),
+                p.getAnnualAggregateFactor());
     }
 }
