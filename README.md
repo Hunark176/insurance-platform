@@ -201,22 +201,13 @@ verwenden.
 Zugriff auf GHCR nutzt der Workflow `GITHUB_TOKEN`; das Paket muss für das
 Repository lesbar sein. Caddy holt und erneuert HTTPS-Zertifikate automatisch.
 
-**Demodaten wiederherstellen:** Die Datei `dev-data.sql` ergänzt nur fehlende
-Demodatensätze und ändert oder löscht keine vorhandenen:
-
-```bash
-cd ~/insurance-platform
-docker compose -f docker-compose.prod.yml exec -T db \
-  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < backend/src/main/resources/db/dev-data.sql
-```
+**Demodaten wiederherstellen:** `ops/reset-demo-data.sh --yes` (mit Backup
+vorab, in einer Transaktion, nie automatisch); Details, Backup und Restore in
+der [Betriebsanleitung](docs/operations.md). `dev-data.sql` nicht direkt auf
+eine befüllte Datenbank anwenden – die Kunden-Einfügung ist nicht wiederholbar.
 
 Das PostgreSQL-Volume nicht mit `docker compose down -v` löschen; gelöschte
 Daten lassen sich nur aus einem Backup wiederherstellen.
-
-**Demodaten zurücksetzen** (mit Backup vorab, in einer Transaktion, nie
-automatisch): `ops/reset-demo-data.sh --yes`, Details in der
-[Betriebsanleitung](docs/operations.md).
 
 **Diagnose:** `docker compose -f docker-compose.prod.yml ps` zeigt den
 Health-Status, `docker compose -f docker-compose.prod.yml logs backend` die
