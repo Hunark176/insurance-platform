@@ -6,6 +6,8 @@ import { authStore, toBasicToken } from './authStore'
 
 export type LoginResult = { ok: true } | { ok: false; message: string }
 
+const KNOWN_ROLES: Role[] = ['CUSTOMER', 'CLERK', 'ADMIN']
+
 export function useAuth() {
   const session = useSyncExternalStore(authStore.subscribe, authStore.getSession)
 
@@ -13,7 +15,13 @@ export function useAuth() {
     const token = toBasicToken(username, password)
     try {
       const user = await fetchCurrentUser(token)
-      authStore.setSession({ username: user.username, roles: user.roles, token })
+      authStore.setSession({
+        username: user.username,
+        // Only roles the frontend knows; the backend remains the authority for every check.
+        roles: user.roles.filter((role): role is Role => KNOWN_ROLES.includes(role as Role)),
+        token,
+        customerNumber: user.customerNumber ?? null,
+      })
       return { ok: true }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {

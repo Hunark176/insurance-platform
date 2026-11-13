@@ -3,7 +3,7 @@
 ## Technische Architektur- und Schnittstellendokumentation
 
 **Dokumenttyp:** System- und Entwicklerdokumentation
-**Zuletzt geprüft:** 13. November 2026
+**Zuletzt geprüft:** 13. November 2026 (inkl. PR #13–#18)
 **Geltungsbereich:** Implementierter Code auf `main` zum Prüfzeitpunkt
 **Status:** Bestandsaufnahme; der Code ist bei Abweichungen maßgeblich
 
@@ -45,6 +45,8 @@ Wichtigste Prozesskette:
 4. Bei Genehmigung prüft das Claim-Aggregat Deckungssumme und
    Jahreshöchstleistung; `ClaimApprovedEvent` erzeugt genau eine Auszahlung.
 5. Ein Admin markiert die Auszahlung als ausgeführt.
+6. Wird eine Police storniert, schreibt Billing die Prämie für den nicht mehr
+   gedeckten Zeitraum anteilig gut.
 
 Ereignisse werden in derselben Transaktion wie die fachliche Änderung in einer
 **Outbox** gespeichert und bei Fehlern erneut zugestellt
@@ -56,7 +58,7 @@ Ereignisse werden in derselben Transaktion wie die fachliche Änderung in einer
 
 | Komponente            | Verantwortung                                                      | Schnittstelle                          |
 | --------------------- | ------------------------------------------------------------------ | -------------------------------------- |
-| Browser               | Claims- und Policenübersicht, Login, Claim-Statuswechsel            | HTTPS                                  |
+| Browser               | Claims- und Policenübersicht, Login, Schaden melden, Statuswechsel, Storno | HTTPS                                  |
 | Caddy (Produktion)    | TLS, Auslieferung des Frontends, Reverse Proxy für `/api`, Swagger | Ports 80/443                           |
 | Vite (Entwicklung)    | Dev-Server, leitet `/api` an das Backend weiter                    | Port 5173                              |
 | Spring-Boot-Anwendung | REST, Geschäftsregeln, Modulkommunikation, Persistenz, Outbox       | Port 8080 (in Produktion nur intern)   |
@@ -76,8 +78,9 @@ deploybaren Fachservices und keinen Message Broker.
 | Persistenz         | PostgreSQL 15 mit Flyway; H2 im Profil `dev`                              |
 | API-Beschreibung   | springdoc-openapi 2.8.13, Swagger UI                                     |
 | Betrieb            | Spring Boot Actuator (Health), strukturierte JSON-Logs (ECS) in `prod`    |
-| Frontend           | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Axios                    |
+| Frontend           | Vitest: Login-Speicher, Fehlermeldungen, Claim-Aktionen, Schaden melden (eigene Policen, Idempotency-Key), Storno |
 | Tests              | JUnit 5, Mockito, Spring Modulith Test, Testcontainers 1.21, Awaitility, Vitest 4, Testing Library |
+| API-Typen          | OpenAPI-Vertrag aus dem Backend, TypeScript-Typen per openapi-typescript 7.13 |
 | Auslieferung       | Docker, Docker Compose, Caddy, GitHub Actions, GitHub Container Registry |
 
 ## 4. Backend-Architektur
@@ -103,11 +106,11 @@ Verträge anderer Module verwenden und keine Zyklen entstehen.
 | `customer`     | Kundenstammdaten                                                              | `CustomerApi`, `CustomerSummary`                      |
 | `product`      | Produktkatalog inkl. Deckungssumme und Jahreshöchstleistungs-Faktor           | `ProductApi`, `ProductSummary`                        |
 | `underwriting` | Ausgabeberechtigung (Kunde existiert, Produkt aktiv)                           | `UnderwritingApi`                                     |
-| `policy`       | Ausgabe, Stornierung mit Wirksamkeitsdatum, Deckung, Versicherungsjahre        | `PolicyApi`, `PolicySnapshot`, `PolicyYear`, `PolicyIssuedEvent` |
+| `policy`       | Ausgabe, Stornierung mit Wirksamkeitsdatum, Deckung, Versicherungsjahre        | `PolicyApi`, `PolicySnapshot`, `PolicyYear`, `PolicyIssuedEvent`, `PolicyCancelledEvent` |
 | `claim`        | Schadenmeldung, Eigentumsprüfung, Statusmaschine, Genehmigungsregeln          | `ClaimApprovedEvent`                                  |
-| `billing`      | Rechnungen und Auszahlungen aus Events                                         | –                                                     |
+| `billing`      | Rechnungen, Auszahlungen und Gutschriften aus Events                           | –                                                     |
 | `audit`        | Append-only Änderungsverlauf                                                  | `AuditTrailApi`, `AuditContext`                       |
-| `shared`       | Querschnitt: `shared::domain` (Money, DomainException), `shared::web` (Fehler, Logging), `shared::security` (Rollen, Login, Rate-Limit, Eigentumsprüfung), Konfiguration | Named Interfaces |
+| `shared`       | Querschnitt: `shared::domain` (Money, DomainException), `shared::web` (Fehler, Logging, `PageResponse`), `shared::security` (Rollen, Login, Rate-Limit, Eigentumsprüfung), `shared.idempotency`, Konfiguration | Named Interfaces |
 
 Synchrone Abhängigkeiten: `underwriting → customer, product`;
 `policy → customer, product, underwriting, audit`;
@@ -140,6 +143,7 @@ stellt sicher, dass die Policenliste höchstens drei SQL-Abfragen benötigt.
 | -------------------- | ------------------------------------------- | ---------------------------------------------------- |
 | `PolicyIssuedEvent`  | `PolicyService.issue`                       | `PolicyIssuedListener` legt genau eine Rechnung an   |
 | `ClaimApprovedEvent` | `ClaimService.updateClaim` bei `APPROVED`   | `ClaimApprovedListener` legt genau eine Auszahlung an |
+| `PolicyCancelledEvent` | `PolicyService.cancel`                    | `PolicyCancelledListener` legt höchstens eine Gutschrift an |
 
 - Ereignisse werden in derselben Transaktion in `event_publication` gespeichert
   und asynchron nach dem Commit zugestellt (`@ApplicationModuleListener`).
@@ -148,7 +152,11 @@ stellt sicher, dass die Policenliste höchstens drei SQL-Abfragen benötigt.
   (`EventPublicationMaintenance`); abgeschlossene Einträge werden nach sieben
   Tagen gelöscht.
 - Zustellung ist *at-least-once*. Die Listener sind idempotent und durch
-  Unique-Constraints abgesichert (`payouts.claim_id`, `invoices.policy_id`).
+  Unique-Constraints abgesichert (`payouts.claim_id`, `invoices.policy_id`,
+  `credit_notes.policy_id`).
+- Bleiben Zustellungen länger als 30 Minuten unvollständig, meldet
+  `/actuator/health` `DOWN` (`EventPublicationHealthIndicator`); die Readiness
+  bleibt unberührt.
 
 ## 5. Fachregeln
 
@@ -188,7 +196,14 @@ Details in [ADR 0005](../adr/0005-deckungsregeln.md).
 
 In den Demodaten hat die private Haftpflicht eine 2-fache Maximierung.
 
-### 5.4 Weitere Regeln
+### 5.4 Prämiengutschrift bei Storno
+
+Nach einer Stornierung ist die Prämie nur bis zum Wirksamkeitsdatum geschuldet
+(§ 39 VVG). Billing berechnet: Prämie × Tage nach dem Wirksamkeitsdatum / Tage
+der Laufzeit, kaufmännisch auf Cent gerundet. Storno vor Beginn ergibt die volle
+Prämie, Storno am letzten Tag keine Gutschrift (`CreditNote.forCancellation`).
+
+### 5.5 Weitere Regeln
 
 - Schadendatum darf nicht in der Zukunft liegen (injizierte UTC-`Clock`).
 - Die übermittelte Kundennummer muss zur Police passen.
@@ -210,14 +225,20 @@ In den Demodaten hat die private Haftpflicht eine 2-fache Maximierung.
 |    401 | nicht angemeldet / falsches Passwort                                      |
 |    403 | Rolle fehlt, fremde Police (Eigentumsprüfung), `DELETE`                   |
 |    404 | Ressource nicht gefunden                                                  |
-|    409 | gleichzeitige Änderung (optimistisches Locking)                           |
-|    422 | Fachregel verletzt (`DomainException`, Invarianten)                       |
+|    409 | gleichzeitige Änderung (optimistisches Locking); Anfrage mit gleichem `Idempotency-Key` läuft noch |
+|    422 | Fachregel verletzt (`DomainException`, Invarianten); `Idempotency-Key` für anderen Inhalt wiederverwendet |
 |    429 | Rate-Limit überschritten, mit `Retry-After`                               |
 |    500 | unerwarteter Fehler, z. B. `IllegalStateException` (Programmierfehler)    |
 
 - Zeitpunkte sind UTC-Instants mit `Z` (z. B. `2026-09-24T17:00:00Z`), Daten
   ISO-Daten (`2026-09-24`). IDs sind numerische Datenbank-IDs.
+- Auch 401/403 der Security-Filterkette kommen als `ProblemDetail`.
 - Jeder Request erhält eine `X-Request-Id`, die auch im Log steht.
+- Listen sind paginiert: `page` (ab 0) und `size` (1–100, Standard 20), Antwort
+  `{content, page, size, totalElements, totalPages, first, last}`.
+- `POST`-Requests dürfen einen `Idempotency-Key` mitsenden; eine Wiederholung
+  liefert die gespeicherte erste Antwort mit `Idempotency-Replayed: true`
+  ([ADR 0006](../adr/0006-idempotency-key.md)).
 
 ### 6.2 Routen und Berechtigungen
 
@@ -227,19 +248,20 @@ In den Demodaten hat die private Haftpflicht eine 2-fache Maximierung.
 | `GET /api/claims/{id}`                    | Claim-Details                                  | öffentlich                     |
 | `POST /api/claims`                        | Schaden melden, HTTP 201                       | CUSTOMER (nur eigene Policen), CLERK, ADMIN |
 | `PATCH /api/claims/{id}/status`           | Statuswechsel (`?newStatus=`)                  | CLERK, ADMIN                   |
-| `GET /api/policies`, `/{id}`              | Policen                                        | öffentlich                     |
+| `GET /api/policies`, `/{id}`              | Policen (Liste paginiert)                      | öffentlich                     |
 | `POST /api/policies`                      | Police ausstellen, HTTP 201                    | CLERK, ADMIN                   |
 | `POST /api/policies/{id}/cancel`          | Stornieren (`?effectiveOn=`, Standard heute)   | CLERK, ADMIN                   |
-| `GET /api/customers`                      | Kundenliste inkl. E-Mail                       | CLERK, ADMIN                   |
+| `GET /api/customers`                      | Kundenliste inkl. E-Mail (paginiert)           | CLERK, ADMIN                   |
 | `GET /api/customers/{id}`                 | Kunde ohne E-Mail                              | öffentlich                     |
 | `POST /api/customers`                     | Kunde anlegen                                  | CLERK, ADMIN                   |
 | `GET /api/products`, `/{id}`              | Produkte                                       | öffentlich                     |
 | `POST /api/products`                      | Produkt anlegen (optional Jahreshöchstleistung) | ADMIN                         |
 | `POST /api/underwriting/check`            | Ausgabeberechtigung prüfen                     | CLERK, ADMIN                   |
-| `GET /api/payouts`                        | Auszahlungen                                   | öffentlich                     |
+| `GET /api/payouts`                        | Auszahlungen (paginiert)                       | öffentlich                     |
 | `POST /api/payouts/{id}/pay`              | Auszahlung ausführen                           | ADMIN                          |
+| `GET /api/credit-notes`                   | Gutschriften nach Storno (paginiert)           | öffentlich                     |
 | `GET /api/audit-trail`                    | Änderungsverlauf je Entität, paginiert         | ADMIN                          |
-| `GET /api/auth/me`                        | angemeldeten Benutzer prüfen                   | angemeldet                     |
+| `GET /api/auth/me`                        | angemeldeten Benutzer prüfen (inkl. Kundennummer bei Kunden) | angemeldet       |
 | `GET /api/auth/demo-accounts`             | veröffentlichte Demo-Zugänge                   | öffentlich                     |
 | `DELETE /api/**`                          | –                                              | gesperrt                       |
 | `GET /actuator/health/**`                 | Liveness/Readiness für den Container           | intern (von Caddy nicht geroutet) |
@@ -280,6 +302,8 @@ speichert `ClaimApprovedEvent` in der Outbox; Billing legt die Auszahlung an.
 | `invoices`          | Rechnung zur Police           | eindeutige Police, Kunde, Betrag, Währung, Status                                 |
 | `payouts`           | Auszahlung zum Claim          | eindeutiger Claim, Police, Betrag, Währung, Status, Version                       |
 | `audit_entries`     | Änderungsverlauf              | Zeitpunkt, Actor, Aktion, Entität, Request-ID, Zusammenfassung                    |
+| `credit_notes`      | Gutschrift nach Storno        | eindeutige Police, Kunde, Betrag, gutgeschriebene Tage / Tage der Laufzeit       |
+| `idempotency_records` | gespeicherte Antworten      | eindeutiger Bereich (Benutzer, Pfad, Schlüssel), Prüfsumme, Status, Body, Zeitpunkte |
 | `event_publication` | Outbox                        | Listener, Event-Typ, serialisiertes Event (JSON), Veröffentlichung, Abschluss      |
 
 Module referenzieren einander über IDs, nicht über JPA-Beziehungen.
@@ -299,6 +323,8 @@ Geldbeträge sind `numeric` mit zwei Nachkommastellen bzw. `Money`.
 | V14       | Claim-Zeitstempel als `timestamp with time zone` (Werte als UTC übernommen)     |
 | V15       | `policies.cancelled_on` mit Check-Constraint                                    |
 | V16       | Jahreshöchstleistung für Produkte und Policen, Index für die Summenabfrage     |
+| V17       | `idempotency_records` für den Idempotency-Key                                  |
+| V18       | `credit_notes` für anteilige Prämiengutschriften                               |
 
 Angewandte Migrationen werden nie geändert; neue Änderungen bekommen eine neue
 Version. `PostgresPersistenceIntegrationTest` führt alle Migrationen gegen
@@ -381,11 +407,14 @@ startet nach gesunder Datenbank; Caddy startet erst, wenn der
 gesund ist. Erforderliche `.env`-Werte: `DOMAIN`, `POSTGRES_PASSWORD`; optional
 `DEMO_*_PASSWORD`, `DEMO_PUBLISH_CREDENTIALS`, `RATE_LIMIT_*`.
 
+Backup, Demodaten-Reset und PostgreSQL-Upgrade beschreibt die
+[Betriebsanleitung](../operations.md).
+
 ### 10.3 CI/CD
 
 | Workflow        | Auslöser       | Schritte                                                                                      |
 | --------------- | -------------- | --------------------------------------------------------------------------------------------- |
-| `CI`            | Pull Request   | Frontend: Lint, Format-Check, Vitest, Build mit `tsc -b`; Backend: `mvn verify` inkl. PostgreSQL-Test; Backend-Image bauen, starten, auf `healthy` und Nicht-Root prüfen |
+| `CI`            | Pull Request   | Frontend: Lint, Format-Check, Vitest, Build mit `tsc -b`; Backend: `mvn verify` inkl. PostgreSQL-Tests, danach Abgleich von OpenAPI-Vertrag und erzeugten Frontend-Typen; Backend-Image bauen, starten, auf `healthy` und Nicht-Root prüfen |
 | `Build & Deploy`| Push auf `main` | ruft zuerst `CI` auf; nur bei Erfolg Images bauen (amd64/arm64), nach GHCR pushen und per SSH deployen; parallele Deployments sind ausgeschlossen |
 
 ### 10.4 Logging und Diagnose
@@ -401,10 +430,10 @@ gesund ist. Erforderliche `.env`-Werte: `DOMAIN`, `POSTGRES_PASSWORD`; optional
 | Ebene              | Beispiele                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------- |
 | Domäne             | `ClaimDomainTest`, `PolicyDomainTest`, `PolicyYearTest`, `EntityInvariantTest`              |
-| Anwendungsfälle    | `ClaimServiceTest`, Listener-Tests                                                           |
-| Web und Sicherheit | `ApiAuthorizationTest`, Controller-Security-Tests, `RateLimitFilterTest`, `ActuatorHealthTest` |
-| Integration        | `InsurancePlatformApplicationTests`, `EventOutboxIntegrationTest`, `AnnualAggregateIntegrationTest` (inkl. Nebenläufigkeit), `PolicyQueryCountTest`, `RateLimitIntegrationTest` |
-| PostgreSQL         | `PostgresPersistenceIntegrationTest` (alle Migrationen, `validate`)                          |
+| Anwendungsfälle    | `ClaimServiceTest`, `CreditNoteTest`, Listener-Tests                                         |
+| Web und Sicherheit | `ApiAuthorizationTest`, Controller-Security-Tests, `RateLimitFilterTest`, `ActuatorHealthTest`, `EventPublicationHealthIndicatorTest` |
+| Integration        | `InsurancePlatformApplicationTests`, `EventOutboxIntegrationTest`, `AnnualAggregateIntegrationTest` (inkl. Nebenläufigkeit), `IdempotencyIntegrationTest` (inkl. Nebenläufigkeit), `PremiumRefundIntegrationTest`, `PolicyQueryCountTest`, `RateLimitIntegrationTest`, `OpenApiContractExportTest` |
+| PostgreSQL         | `PostgresPersistenceIntegrationTest` (alle Migrationen, `validate`), `DemoDataResetIntegrationTest` (Reset und Rollback) |
 | Architektur        | `ModularityTest`                                                                            |
 | Frontend           | Vitest: Login-Speicher, Fehlermeldungen, rollenabhängige Claim-Aktionen                      |
 
@@ -415,14 +444,16 @@ ist nicht nötig. Struktur:
 
 | Pfad                         | Inhalt                                                        |
 | ---------------------------- | ------------------------------------------------------------- |
-| `src/api/`                   | Axios-Client (`X-Request-Id`, Basic-Auth, `X-Requested-With`), Services, Fehlertexte |
+| `src/api/`                   | Axios-Client (`X-Request-Id`, Basic-Auth, `X-Requested-With`), Services, Fehlertexte; `generated/schema.ts` aus dem OpenAPI-Vertrag |
 | `src/features/auth/`         | Login-Dialog, Benutzermenü, Sitzungsspeicher, `useAuth`        |
-| `src/features/claims/`       | Übersicht, Statusbadges, rollenabhängige Aktionen, `useClaims` |
-| `src/features/policies/`     | Policenübersicht                                              |
-| `src/types/`                 | Transporttypen                                                |
+| `src/features/claims/`       | Übersicht, Statusbadges, rollenabhängige Aktionen, Schaden melden, `useClaims` |
+| `src/features/policies/`     | Policenübersicht mit Seiten, Storno mit Wirksamkeitsdatum      |
+| `src/types/`                 | aus den erzeugten API-Typen abgeleitete Typen                 |
 
 Das Frontend blendet Aktionen nach Rolle aus bzw. deaktiviert sie; maßgeblich
-bleibt immer die Prüfung im Backend. Die Policenansicht ist eine Leseansicht.
+bleibt immer die Prüfung im Backend. Die API-Typen werden mit
+`npm run generate:api-types` aus `frontend/openapi.json` erzeugt; die CI prüft,
+dass sie zum Backend passen.
 
 ## 12. Quellcode-Navigation
 
@@ -439,6 +470,8 @@ bleibt immer die Prüfung im Backend. Die Policenansicht ist eine Leseansicht.
 | `docker-compose.yml`, `docker-compose.prod.yml`  | lokal bzw. Produktion                    |
 | `.github/workflows/`                          | CI und Deployment                          |
 | `docs/adr/`                                   | Architekturentscheidungen                  |
+| `ops/`                                        | Demodaten-Reset für den Server             |
+| `frontend/openapi.json`, `frontend/src/api/generated/` | exportierter API-Vertrag und erzeugte Typen |
 
 ## 13. Zugehörige Dokumente
 
@@ -446,9 +479,11 @@ bleibt immer die Prüfung im Backend. Die Policenansicht ist eine Leseansicht.
 - [Architekturprinzipien und Klassenplatzierung](architecture-principles.md)
 - [Domänen- und Modulüberblick](domain-overview.md)
 - [Architektur-Roadmap und offene Punkte](architecture-roadmap.md)
+- [Betrieb: Backup, Demodaten-Reset, PostgreSQL-Upgrade](../operations.md)
 - [API-Dokumentation](../api/README.md)
 - ADRs: [0001 Modularer Monolith](../adr/0001-modularer-monolith.md) ·
   [0002 Events und Outbox](../adr/0002-spring-modulith-events-outbox.md) ·
   [0003 Persistenz im Fachmodul](../adr/0003-persistenzzugriff-im-domain-modul.md) ·
   [0004 Claim-Policy-Migration](../adr/0004-claim-policy-migration.md) ·
-  [0005 Deckungsregeln](../adr/0005-deckungsregeln.md)
+  [0005 Deckungsregeln](../adr/0005-deckungsregeln.md) ·
+  [0006 Idempotency-Key](../adr/0006-idempotency-key.md)

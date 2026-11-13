@@ -1,3 +1,6 @@
+-- Demo data for the H2 dev profile and for ops/reset-demo-data.sh on PostgreSQL.
+-- Keep it portable: only SQL that H2 and PostgreSQL both accept (e.g. current_date - n,
+-- no dateadd or timestamp arithmetic with integers). DemoDataResetIntegrationTest runs it on PostgreSQL.
 -- Synthetic development data only. All email addresses use the reserved .test domain.
 insert into customers (customer_number, display_name, email, active) values
     ('DEMO-1001', 'Anna Schneider', 'anna.schneider.1001@example.test', true),
@@ -120,7 +123,7 @@ where not exists (
 
 insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 5, 'AUTO', 'Auffahrunfall auf der A2', 3200.50, 'RECEIVED',
-       current_timestamp - 5, current_timestamp - 5, 0
+       cast(current_date - 5 as timestamp), cast(current_date - 5 as timestamp), 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -130,7 +133,7 @@ where c.customer_number = 'DEMO-1001'
 
 insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 3, 'LIABILITY', 'Wasserschaden in der Nachbarwohnung', 850.00, 'IN_REVIEW',
-       current_timestamp - 3, current_timestamp - 2, 0
+       cast(current_date - 3 as timestamp), cast(current_date - 2 as timestamp), 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -140,7 +143,7 @@ where c.customer_number = 'DEMO-1001'
 
 insert into claims (policy_id, occurred_on, claim_type, description, amount, status, created_at, updated_at, version)
 select p.id, current_date - 1, 'AUTO', 'Parkschaden auf einem Supermarktparkplatz', 1200.00, 'RECEIVED',
-       current_timestamp - 1, current_timestamp - 1, 0
+       cast(current_date - 1 as timestamp), cast(current_date - 1 as timestamp), 0
 from policies p
 join customers c on c.id = p.customer_id
 join products product on product.id = p.product_id
@@ -187,8 +190,8 @@ select p.id,
            when 2 then 'APPROVED'
            else 'REJECTED'
        end,
-       dateadd('DAY', -(mod(cast(substring(c.customer_number, 6) as integer), 150) + 10), current_timestamp),
-       dateadd('DAY', -(mod(cast(substring(c.customer_number, 6) as integer), 150) + 3), current_timestamp),
+       cast(current_date - (mod(cast(substring(c.customer_number, 6) as integer), 150) + 10) as timestamp),
+       cast(current_date - (mod(cast(substring(c.customer_number, 6) as integer), 150) + 3) as timestamp),
        0
 from customers c
 join products product on product.code = case

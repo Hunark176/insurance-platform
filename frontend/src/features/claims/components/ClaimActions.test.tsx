@@ -16,6 +16,8 @@ function claim(status: ClaimStatus): Claim {
     amount: 250,
     status,
     occurredOn: '2026-11-01',
+    createdAt: '2026-11-02T09:00:00Z',
+    description: null,
   }
 }
 

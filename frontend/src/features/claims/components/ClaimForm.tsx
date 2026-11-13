@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useClaims } from '@/features/claims/hooks/useClaims'
+import { useAuth } from '@/features/auth/useAuth'
+import { ReportClaimDialog } from './ReportClaimDialog'
 import { Button } from '@/components/ui/button'
 import { ClaimStats } from './ClaimStats'
 import { ClaimTable } from './ClaimTable'
@@ -27,6 +30,8 @@ export function ClaimForm({ onLoginRequired }: ClaimFormProps) {
     handleStatusChange,
     updatingId,
   } = useClaims()
+  const { session } = useAuth()
+  const [reportOpen, setReportOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -38,14 +43,23 @@ export function ClaimForm({ onLoginRequired }: ClaimFormProps) {
             <p className="mt-1 text-sm text-gray-500">Übersicht und Verwaltung der Schadenfälle</p>
           </div>
 
-          <Button
-            className="!rounded-full !px-6 py-2"
-            type="button"
-            onClick={handleLoadClaims}
-            disabled={loading}
-          >
-            {loading ? 'Lade Daten...' : '↻ Daten laden'}
-          </Button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => (session === null ? onLoginRequired() : setReportOpen(true))}
+              className="rounded-full border border-blue-600 px-6 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
+            >
+              + Schaden melden
+            </button>
+            <Button
+              className="!rounded-full !px-6 py-2"
+              type="button"
+              onClick={handleLoadClaims}
+              disabled={loading}
+            >
+              {loading ? 'Lade Daten...' : '↻ Daten laden'}
+            </Button>
+          </div>
         </div>
 
         {/* Message Banner */}
@@ -89,6 +103,14 @@ export function ClaimForm({ onLoginRequired }: ClaimFormProps) {
           onLoginRequired={onLoginRequired}
         />
       </div>
+      <ReportClaimDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onReported={() => {
+          setReportOpen(false)
+          void handleLoadClaims()
+        }}
+      />
     </div>
   )
 }

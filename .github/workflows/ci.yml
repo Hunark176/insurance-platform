@@ -40,6 +40,21 @@ jobs:
           java-version: '21'
           cache: maven
       - run: bash backend/mvnw -f backend/pom.xml verify
+      # OpenApiContractExportTest wrote the current contract to backend/target/openapi.json.
+      # Regenerate the frontend types from it and fail if the committed files differ,
+      # so backend DTO changes cannot silently break the frontend types.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check that frontend API types match the backend contract
+        run: |
+          cp backend/target/openapi.json frontend/openapi.json
+          npx --yes openapi-typescript@7.13.0 frontend/openapi.json \
+            --output frontend/src/api/generated/schema.ts --properties-required-by-default
+          if ! git diff --exit-code -- frontend/openapi.json frontend/src/api/generated; then
+            echo "::error::API contract changed. Run the export test with -Dopenapi.export=true and npm run generate:api-types, then commit the result."
+            exit 1
+          fi
 
   # Pull requests only: build the backend image and start it, so Dockerfile and
   # healthcheck problems surface before merge. On main, "Build & Deploy" builds

@@ -1,3 +1,6 @@
+import type { components } from '@/api/generated/schema'
+
+/** Roles of the backend (`Roles`); the API describes them only as strings. */
 export type Role = 'CUSTOMER' | 'CLERK' | 'ADMIN'
 
 export interface Session {
@@ -5,15 +8,11 @@ export interface Session {
   roles: Role[]
   /** Base64-encoded `username:password` for the HTTP Basic header. */
   token: string
+  /** Customer represented by a customer login; null for staff. */
+  customerNumber?: string | null
 }
 
-export interface CurrentUser {
-  username: string
-  roles: Role[]
-}
+// Generated from the backend OpenAPI contract (npm run generate:api-types).
+export type CurrentUser = components['schemas']['CurrentUser']
 
-export interface DemoAccount {
-  username: string
-  password: string
-  role: Role
-}
+export type DemoAccount = Omit<components['schemas']['DemoAccount'], 'role'> & { role: Role }

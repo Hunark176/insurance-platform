@@ -3,7 +3,7 @@
 ## Architektur-Roadmap und technisches Umsetzungs-Backlog
 
 **Dokumenttyp:** Lebende Architektur-Roadmap und priorisiertes Engineering-Backlog
-**Zuletzt aktualisiert:** 13. November 2026
+**Zuletzt aktualisiert:** 13. November 2026 (zweite Runde)
 **Geltungsbereich:** Insurance-Platform-Repository
 **Status:** Planungsgrundlage – offene Punkte sind keine Aufforderung, sie sofort umzusetzen
 
@@ -75,22 +75,22 @@ Modularer Monolith
 | ---- | -------------------------------------------------- | --------- | ------------------ |
 | R-01 | Flyway-Versionen und PostgreSQL-Migrationen        | P1        | Erledigt           |
 | R-02 | Entity-, Seed- und Schemaabgleich                  | P1        | Erledigt           |
-| R-03 | Authentifizierung und Zugriff pro Kunde            | P0        | Teilweise erledigt |
-| R-04 | Einheitlicher Fehlervertrag und API-Typen          | P2        | Teilweise erledigt |
+| R-03 | Authentifizierung und Zugriff pro Kunde            | P0        | Erledigt (Demo); OIDC zurückgestellt |
+| R-04 | Einheitlicher Fehlervertrag und API-Typen          | P2        | Erledigt |
 | R-05 | Billing- und Statusabläufe testen                  | P1        | Erledigt           |
 | R-06 | Event-Zuverlässigkeit (Outbox)                     | P1        | Erledigt           |
-| R-07 | Frontend-Anmelde- und Fachabläufe                  | P2        | Teilweise erledigt |
+| R-07 | Frontend-Anmelde- und Fachabläufe                  | P2        | Erledigt |
 | R-08 | Repository-Schichten vereinheitlichen              | P3        | Erledigt           |
 | R-09 | Betriebsbereitschaft und Konfiguration             | P2        | Erledigt           |
 | R-10 | Dokumentation synchron halten                      | P3        | Fortlaufend        |
 | R-11 | Deckungsregeln (Storno, Jahreshöchstleistung)      | P1        | Erledigt           |
 | R-12 | Missbrauchsschutz der öffentlichen Demo            | P1        | Erledigt           |
-| R-13 | Anteilige Prämienerstattung bei Stornierung        | P2        | Offen              |
-| R-14 | Idempotency-Key für schreibende API-Aufrufe        | P3        | Offen              |
-| R-15 | Demodaten regelmäßig zurücksetzen                  | P3        | Offen              |
-| R-16 | Paginierung für Policen, Kunden und Auszahlungen   | P3        | Offen              |
-| R-17 | Überwachung fehlgeschlagener Event-Zustellungen    | P3        | Offen              |
-| R-18 | PostgreSQL-Upgrade der Produktion                  | P3        | Offen              |
+| R-13 | Anteilige Prämienerstattung bei Stornierung        | P2        | Erledigt |
+| R-14 | Idempotency-Key für schreibende API-Aufrufe        | P3        | Erledigt |
+| R-15 | Demodaten regelmäßig zurücksetzen                  | P3        | Erledigt |
+| R-16 | Paginierung für Policen, Kunden und Auszahlungen   | P3        | Erledigt |
+| R-17 | Überwachung fehlgeschlagener Event-Zustellungen    | P3        | Erledigt |
+| R-18 | PostgreSQL-Upgrade der Produktion                  | P3        | Erledigt (Anleitung) |
 
 ## 4. Punkte im Detail
 
@@ -123,25 +123,24 @@ H2-Seed (`dev-data.sql`) spiegelt fachlich relevante Migrationen wie V16.
 Endpunkt (`@PreAuthorize`), Eigentumsprüfung für Kunden
 (`CustomerAccessPolicy`), Tests für 401/403/200 mit echten Zugängen.
 
-**Offen:** produktiver Identitätsanbieter (OIDC/JWT), Zuordnung echter Benutzer
-zu Kunden, kundengenaue Einschränkung auch der **lesenden** Endpunkte. Diese
-sind für die Demo bewusst öffentlich.
+**Zurückgestellt (bewusst):** produktiver Identitätsanbieter (OIDC/JWT) und
+kundengenaue Einschränkung der **lesenden** Endpunkte. Die Demo soll ohne
+Anmeldung lesbar sein, und ein Identitätsanbieter wäre zusätzliche
+Infrastruktur ohne Nutzen für die Portfolio-Demo. `@PreAuthorize` und
+`CustomerAccessPolicy` bleiben bei einem späteren Wechsel unverändert.
 
 ### R-04 – Einheitlicher Fehlervertrag und API-Typen
 
-**Status:** Teilweise erledigt am 12.11.2026
+**Status:** Erledigt am 13.11.2026
 
 **Erledigt:** Fachliche, Validierungs-, Konflikt- und Rate-Limit-Fehler als
 `ProblemDetail`; `IllegalStateException` gilt als Programmierfehler (500);
 Frontend-Typ `Claim` enthält Status und Police.
 
-**Offen:**
-
-- 401 aus der Security-Filterkette hat keinen Body, 403 durch `denyAll`
-  (`DELETE`) liefert das Spring-Standardformat statt `ProblemDetail`.
-  Abnahme: eigener `AuthenticationEntryPoint` und `AccessDeniedHandler`, Tests.
-- Frontend-Typen werden von Hand gepflegt. Abnahme: aus `/v3/api-docs`
-  generierte Typen (z. B. `openapi-typescript`) mit CI-Prüfung auf Abweichungen.
+Am 13.11.2026 ergänzt: 401/403 der Security-Filterkette ebenfalls als
+`ProblemDetail` (`ProblemDetailSecurityHandler`). Frontend-Typen werden aus dem
+exportierten OpenAPI-Vertrag erzeugt (`npm run generate:api-types`); die CI
+schlägt fehl, wenn Vertrag und Typen auseinanderlaufen.
 
 ### R-05 – Billing- und Statusabläufe testen
 
@@ -162,14 +161,15 @@ dass ein Event bei Listener-Ausfall erhalten bleibt und danach zugestellt wird.
 
 ### R-07 – Frontend-Anmelde- und Fachabläufe
 
-**Status:** Teilweise erledigt am 12.11.2026
+**Status:** Erledigt am 13.11.2026
 
 **Erledigt:** Login mit Demo-Zugängen, Benutzermenü, Claim-Status mit
 rollenabhängigen Aktionen, Fehlermeldungen für 401/403/409/422/429, Vitest.
 
-**Offen (nach Bedarf):** Schadenmeldung und Policenstornierung in der UI,
-Detailansichten, Billing-Ansicht. Erst umsetzen, wenn der Nutzen für die Demo
-feststeht.
+Am 13.11.2026 ergänzt: Schaden melden (Kunden nur für eigene Policen, mit
+Idempotency-Key), Police stornieren mit Wirksamkeitsdatum, Seitennavigation.
+Nicht geplant: Detail- und Billing-Ansichten, solange sie der Demo nichts
+hinzufügen.
 
 ### R-08 – Repository-Schichten vereinheitlichen
 
@@ -210,55 +210,51 @@ Minute, vor Spring Security (zählt auch falsche Logins), Antwort 429 mit
 
 ### R-13 – Anteilige Prämienerstattung bei Stornierung
 
-**Priorität:** P2 · **Status:** Offen
+**Status:** Erledigt am 13.11.2026
 
-Bei vorzeitiger Beendigung steht die Prämie nur bis zum Vertragsende zu
-(§ 39 VVG). Heute ändert eine Stornierung die Rechnung nicht.
-
-**Vorschlag:** `PolicyCancelledEvent` mit Wirksamkeitsdatum; Billing erstellt
-eine Gutschrift für den nicht verbrauchten Zeitraum. **Vorher klären:**
-Abrechnungsperiode (jährlich/monatlich), Rundung, Ausnahmen.
+`PolicyCancelledEvent` → Billing erstellt genau eine Gutschrift: Prämie ×
+nicht mehr gedeckte Tage / Tage der Laufzeit, kaufmännisch auf Cent gerundet
+(V18, `GET /api/credit-notes`). Festgelegt: Die Prämie gilt für die gesamte
+Laufzeit, abgerechnet wird taggenau.
 
 ### R-14 – Idempotency-Key für schreibende API-Aufrufe
 
-**Priorität:** P3 · **Status:** Offen
+**Status:** Erledigt am 13.11.2026 – [ADR 0006](../adr/0006-idempotency-key.md)
 
-Wiederholt ein Client nach einem Timeout `POST /api/claims`, entsteht ein
-zweiter Claim. **Abnahme:** optionaler Header `Idempotency-Key`, gespeicherte
-Antwort je Schlüssel und Benutzer mit Ablaufzeit, Test für Wiederholung.
+Header `Idempotency-Key` für `POST /api/**` (V17); Wiederholungen liefern die
+gespeicherte Antwort. Ein Test belegt: vier gleichzeitige Anfragen legen genau
+einen Claim an.
 
 ### R-15 – Demodaten regelmäßig zurücksetzen
 
-**Priorität:** P3 · **Status:** Offen
+**Status:** Erledigt am 13.11.2026 – [Betrieb](../operations.md)
 
-Besucher können Demodaten verändern. Ein automatisches Zurücksetzen löscht
-Daten und ist deshalb bewusst nicht im Backend eingebaut. **Vorschlag:**
-dokumentiertes Skript, das per Cron auf dem Server Geschäftsdaten leert und die
-Demodaten neu einspielt; vorher Backup.
+`ops/reset-demo-data.sh --yes`: zuerst Backup, dann Leeren und Neueinspielen
+in **einer** Transaktion; bei einem Fehler bleiben die alten Daten. Läuft nur
+manuell oder per selbst eingerichtetem Cron. Ein PostgreSQL-Test prüft Reset
+und Rollback.
 
 ### R-16 – Paginierung für weitere Listen
 
-**Priorität:** P3 · **Status:** Offen
+**Status:** Erledigt am 13.11.2026
 
-`GET /api/policies`, `/api/customers` und `/api/payouts` liefern alle Einträge.
-Bei wachsenden Daten wie bei Claims paginieren; das ändert den API-Vertrag und
-erfordert eine Anpassung des Frontends.
+Policen, Kunden, Auszahlungen und Gutschriften sind wie Claims paginiert
+(`PageResponse`, `page`/`size` bis 100). Das Frontend nutzt Seiten zu 100.
 
 ### R-17 – Überwachung fehlgeschlagener Event-Zustellungen
 
-**Priorität:** P3 · **Status:** Offen
+**Status:** Erledigt am 13.11.2026
 
-Dauerhaft fehlschlagende Events werden wiederholt und erzeugen Warnungen im
-Log, aber keinen Alarm. **Abnahme:** Kennzahl für unvollständige Einträge in
-`event_publication` (z. B. Actuator-Health-Indikator oder Metrik) und eine
-dokumentierte Reaktion.
+`EventPublicationHealthIndicator`: `/actuator/health` meldet `DOWN` und loggt
+einen Fehler, wenn Events länger als 30 Minuten unvollständig sind; die
+Readiness bleibt unberührt.
 
 ### R-18 – PostgreSQL-Upgrade der Produktion
 
-**Priorität:** P3 · **Status:** Offen
+**Status:** Erledigt (Anleitung) am 13.11.2026 – [Betrieb](../operations.md)
 
-Produktion läuft auf PostgreSQL 15. Ein Major-Upgrade erfordert Dump und
-Restore des Volumes und gemeinsame Anpassung von Compose und Testcontainers.
+Schrittweise Anleitung für Dump und Restore in ein neues Volume mit Rückweg.
+Die Durchführung selbst braucht ein Wartungsfenster und erfolgt bei Bedarf.
 
 ## 5. Bewusst nicht auf der Liste
 
@@ -276,6 +272,7 @@ Restore des Volumes und gemeinsame Anpassung von Compose und Testcontainers.
 | 2026-10-28 | Paketstruktur vereinheitlicht, Migrationen bis V10, lokale/produktive Bereitstellung         |
 | 2026-11-12 | Security mit Rollen und Eigentumsprüfung, Outbox, Deploy nach CI, N+1 behoben, UTC-Zeitstempel, Deckungsregeln, Health-Checks, Frontend-Tests; R-01, R-02, R-05, R-06, R-09, R-11 erledigt |
 | 2026-11-13 | Rate-Limit (R-12); Dokumentation vollständig aktualisiert; neue offene Punkte R-13 bis R-18 |
+| 2026-11-13 | R-04, R-07, R-13 bis R-18 erledigt: ProblemDetail für 401/403, erzeugte API-Typen, Schaden melden und Stornieren im Frontend, Prämiengutschrift, Idempotency-Key, Demodaten-Reset, Paginierung, Event-Überwachung, Upgrade-Anleitung; R-03 (OIDC) bewusst zurückgestellt |
 
 ## 7. Verwandte Dokumente
 

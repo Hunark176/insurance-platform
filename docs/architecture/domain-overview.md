@@ -29,6 +29,7 @@ records are written through the audit module contract.
 | Cancellation date         | Wirksamkeitsdatum des Stornos  | Last covered day of a cancelled policy (`cancelledOn`); never retroactive               |
 | Underwriting              | Risikoprüfung                  | Decision whether a policy may be issued                                                 |
 | Invoice / Payout          | Rechnung / Auszahlung          | Billing results of policy issuance and claim approval                                   |
+| Credit note               | Gutschrift                     | Pro-rata premium for the days after a cancellation (§ 39 VVG)                           |
 
 This is a current-code overview, not a complete DDD bounded-context map.
 Aggregate ownership, ubiquitous-language definitions beyond this glossary, and

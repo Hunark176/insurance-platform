@@ -1,10 +1,10 @@
 package de.hunar.insurance.shared.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,8 +23,10 @@ import java.util.List;
  * HTTP Basic authentication, and role checks are declared with {@code @PreAuthorize} on the
  * controller methods.
  *
- * <p>Requests sent with {@code X-Requested-With: XMLHttpRequest} receive a plain 401 without a
- * {@code WWW-Authenticate} challenge, so the browser does not open its own login dialog.</p>
+ * <p>401 and 403 from the filter chain are written as {@code ProblemDetail} by
+ * {@link ProblemDetailSecurityHandler}. Requests sent with {@code X-Requested-With: XMLHttpRequest}
+ * receive no {@code WWW-Authenticate} challenge, so the browser does not open its own login
+ * dialog.</p>
  */
 @Configuration
 @EnableMethodSecurity
@@ -32,7 +34,8 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+        ProblemDetailSecurityHandler problemHandler = new ProblemDetailSecurityHandler(objectMapper);
         http
                 // Stateless HTTP Basic without cookies: no CSRF token is needed.
                 .csrf(csrf -> csrf.disable())
@@ -50,7 +53,10 @@ public class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/**").permitAll()
                         .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults());
+                .httpBasic(basic -> basic.authenticationEntryPoint(problemHandler))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(problemHandler)
+                        .accessDeniedHandler(problemHandler));
         return http.build();
     }
 

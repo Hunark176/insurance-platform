@@ -4,3 +4,6 @@ insurance:
   # RateLimitFilterTest covers the limiter directly.
   rate-limit:
     enabled: false
+  # Enabled explicitly in IdempotencyIntegrationTest; web slice tests do not load its repository.
+  idempotency:
+    enabled: false

@@ -1,22 +1,8 @@
-export type ClaimStatus = 'RECEIVED' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED'
+import type { components } from '@/api/generated/schema'
 
-export interface Claim {
-  id: number
-  policyId: number
-  customerNumber: string
-  customerName: string
-  claimType: string
-  amount: number
-  status: ClaimStatus
-  occurredOn: string
-}
-
-export interface ClaimPage {
-  content: Claim[]
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
-  first: boolean
-  last: boolean
-}
+// Generated from the backend OpenAPI contract (npm run generate:api-types); do not redefine fields here.
+export type Claim = components['schemas']['ClaimResponse']
+export type ClaimPage = components['schemas']['ClaimPageResponse']
+export type ClaimStatus = Claim['status']
+export type CreateClaimRequest = components['schemas']['CreateClaimRequest']
+export type ClaimType = CreateClaimRequest['claimType']

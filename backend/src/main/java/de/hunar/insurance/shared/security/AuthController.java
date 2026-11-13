@@ -1,6 +1,7 @@
 package de.hunar.insurance.shared.security;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Login support for the frontend: credential check and the published demo accounts.
@@ -28,7 +30,8 @@ public class AuthController {
      * Returns the authenticated user; used by the frontend to verify entered credentials.
      *
      * @param authentication current authentication
-     * @return username and roles without the {@code ROLE_} prefix
+     * @return username, roles without the {@code ROLE_} prefix and, for customer logins, the
+     *         customer number the login represents
      */
     @GetMapping("/me")
     @Operation(summary = "Angemeldeten Benutzer abfragen")
@@ -40,7 +43,13 @@ public class AuthController {
                 .map(authority -> authority.substring(ROLE_PREFIX.length()))
                 .sorted()
                 .toList();
-        return new CurrentUser(authentication.getName(), roles);
+        String customerNumber = properties.users().stream()
+                .filter(user -> user.username().equals(authentication.getName()))
+                .map(DemoUserProperties.DemoUser::customerNumber)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        return new CurrentUser(authentication.getName(), roles, customerNumber);
     }
 
     /**
@@ -59,7 +68,11 @@ public class AuthController {
                 .toList();
     }
 
-    public record CurrentUser(String username, List<String> roles) {
+    /**
+     * @param customerNumber customer represented by the login; {@code null} for staff logins
+     */
+    public record CurrentUser(String username, List<String> roles,
+                              @Schema(types = {"string", "null"}) String customerNumber) {
     }
 
     public record DemoAccount(String username, String password, String role) {

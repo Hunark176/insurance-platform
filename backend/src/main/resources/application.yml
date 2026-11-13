@@ -16,6 +16,8 @@ logging:
       max-history: 14
       total-size-cap: 100MB
 springdoc:
+  # Stable key order, so the exported contract (frontend/openapi.json) diffs cleanly.
+  writer-with-order-by-keys: true
   swagger-ui:
     persist-authorization: true
 # Health endpoints for the Docker healthcheck. Only health and info are exposed,
@@ -38,6 +40,12 @@ management:
         readiness:
           include: readinessState,db
 insurance:
+  # POST requests with an Idempotency-Key header are answered once and replayed on retry
+  # (see IdempotencyFilter).
+  idempotency:
+    enabled: true
+    retention: PT24H
+    stale-after: PT5M
   # Requests per client IP and minute on /api/** (see RateLimitFilter). The demo logins
   # are public, so this protects against mass writes and password guessing.
   rate-limit:
@@ -51,6 +59,8 @@ insurance:
       retry-interval: PT1M
       retry-older-than: PT5M
       completed-retention: P7D
+      # /actuator/health reports DOWN while publications stay incomplete longer than this.
+      stuck-after: PT30M
   # Public demo logins. Each password defaults to the username in every profile; set
   # DEMO_*_PASSWORD environment variables to override them.
   security:

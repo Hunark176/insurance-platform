@@ -24,7 +24,8 @@ Demo-Zugänge: `customer`/`customer`, `clerk`/`clerk`, `admin`/`admin`
 ## Funktionen
 
 - Kunden und Versicherungsprodukte anlegen und abrufen
-- Policen ausstellen, anzeigen und mit Wirksamkeitsdatum stornieren
+- Policen ausstellen, anzeigen und mit Wirksamkeitsdatum stornieren; die
+  Prämie für den nicht mehr gedeckten Zeitraum wird anteilig gutgeschrieben
 - Schäden melden, paginiert abrufen und durch die Statusmaschine führen
   (eingegangen → in Prüfung → genehmigt/abgelehnt)
 - Genehmigung mit Deckungsprüfung nach dem **Schadenereignisprinzip**,
@@ -32,10 +33,11 @@ Demo-Zugänge: `customer`/`customer`, `clerk`/`clerk`, `admin`/`admin`
 - Rechnungen und Auszahlungen automatisch über Domänenereignisse mit
   **persistenter Outbox**; Admins führen Auszahlungen aus
 - Rollen (Kunde, Sachbearbeitung, Admin), **Eigentumsprüfung** für Kunden,
-  Rate-Limit und Audit-Trail
+  Rate-Limit, Audit-Trail und **Idempotency-Key** gegen doppelte Meldungen
 
 Die Weboberfläche zeigt Schadenfälle und Policen, bietet Login mit
-Demo-Zugängen und Statuswechsel für Schadenfälle. Alle weiteren Funktionen sind
+Demo-Zugängen, Schadenmeldung, Statuswechsel für Schadenfälle und
+Policenstornierung. Alle weiteren Funktionen sind
 über die REST-API und Swagger verfügbar. Das Projekt ist eine Portfolio-Demo,
 keine produktionsfertige Versicherungsplattform.
 
@@ -62,6 +64,7 @@ Ereignisse, die mit der fachlichen Änderung in einer Outbox gespeichert werden.
 - [Architekturprinzipien](docs/architecture/architecture-principles.md)
 - [Roadmap und offene Punkte](docs/architecture/architecture-roadmap.md)
 - [API-Dokumentation](docs/api/README.md)
+- [Betrieb: Backup, Demodaten-Reset, PostgreSQL-Upgrade](docs/operations.md)
 - [Architekturentscheidungen (ADRs)](docs/README.md#architekturentscheidungen-adrs)
 
 ## Voraussetzungen
@@ -198,15 +201,10 @@ verwenden.
 Zugriff auf GHCR nutzt der Workflow `GITHUB_TOKEN`; das Paket muss für das
 Repository lesbar sein. Caddy holt und erneuert HTTPS-Zertifikate automatisch.
 
-**Demodaten wiederherstellen:** Die Datei `dev-data.sql` ergänzt nur fehlende
-Demodatensätze und ändert oder löscht keine vorhandenen:
-
-```bash
-cd ~/insurance-platform
-docker compose -f docker-compose.prod.yml exec -T db \
-  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < backend/src/main/resources/db/dev-data.sql
-```
+**Demodaten wiederherstellen:** `ops/reset-demo-data.sh --yes` (mit Backup
+vorab, in einer Transaktion, nie automatisch); Details, Backup und Restore in
+der [Betriebsanleitung](docs/operations.md). `dev-data.sql` nicht direkt auf
+eine befüllte Datenbank anwenden – die Kunden-Einfügung ist nicht wiederholbar.
 
 Das PostgreSQL-Volume nicht mit `docker compose down -v` löschen; gelöschte
 Daten lassen sich nur aus einem Backup wiederherstellen.
@@ -222,16 +220,20 @@ GET   /api/claims?page=0&size=20
 GET   /api/claims?page=0&size=20&policyId=12345
 PATCH /api/claims/4712/status?newStatus=IN_REVIEW
 POST  /api/policies/12/cancel?effectiveOn=2026-12-31
+GET   /api/credit-notes?page=0&size=20
 ```
 
-Die Claim-Übersicht ist 0-basiert paginiert, standardmäßig 20 und höchstens 100
-Einträge pro Seite. Alle Endpunkte und Schemata stehen in Swagger.
+Alle Listen sind 0-basiert paginiert, standardmäßig 20 und höchstens 100
+Einträge pro Seite. `POST`-Requests können einen `Idempotency-Key` mitsenden,
+damit eine Wiederholung nach einem Timeout nichts doppelt anlegt. Alle
+Endpunkte und Schemata stehen in Swagger.
 
 ## Projektstruktur
 
 ```text
 backend/    Spring-Boot-Anwendung, Tests und Flyway-Migrationen
 frontend/   React-/TypeScript-Anwendung (Caddy-Image: frontend/Dockerfile)
-docs/       Architektur, API, ADRs, Diagramme
+docs/       Architektur, API, ADRs, Diagramme, Betrieb
+ops/        Skripte für den Server (Demodaten-Reset)
 .github/    CI/CD-Workflows und Copilot-Anweisungen
 ```
