@@ -3,578 +3,452 @@
 ## Technische Architektur- und Schnittstellendokumentation
 
 **Dokumenttyp:** System- und Entwicklerdokumentation
-**Zuletzt geprüft:** 28. Oktober 2026
-**Geltungsbereich:** Implementierter Code im Repository zum Prüfzeitpunkt
-**Status:** Bestandsaufnahme; nicht automatisch gleichbedeutend mit einem freigegebenen Produktionsdesign
+**Zuletzt geprüft:** 13. November 2026
+**Geltungsbereich:** Implementierter Code auf `main` zum Prüfzeitpunkt
+**Status:** Bestandsaufnahme; der Code ist bei Abweichungen maßgeblich
 
-> Diese Bestandsaufnahme beschreibt den Repository-Stand am Prüfdatum.
-> „Vorhanden“ bedeutet nicht zwangsläufig „produktionsbereit“; insbesondere
-> Authentifizierung, PostgreSQL-Integration und Event-Zuverlässigkeit haben
-> weiterhin dokumentierte Grenzen.
+> Die gehostete Umgebung ist eine **öffentliche Portfolio-Demo** mit
+> veröffentlichten Demo-Zugängen und synthetischen Daten. Für Platzierung und
+> Architekturregeln ist ergänzend
+> [Architekturprinzipien und Klassenplatzierung](architecture-principles.md)
+> maßgeblich; akzeptierte [ADRs](../adr) bleiben Entscheidungen. Offene Punkte
+> stehen in der [Architektur-Roadmap](architecture-roadmap.md).
 
 ## 1. Zweck und Leseschlüssel
 
-Diese Dokumentation erklärt den Systemaufbau, die Modulgrenzen, die internen und
-externen Schnittstellen, die wichtigsten Abläufe sowie Betrieb und erkennbare
-Einschränkungen. Sie ergänzt die vorhandenen ADRs und API-Dokumentation. Der Code
-ist bei Abweichungen die maßgebliche Quelle.
+Diese Dokumentation erklärt Systemaufbau, Modulgrenzen, interne und externe
+Schnittstellen, die wichtigsten Abläufe, Sicherheit sowie Betrieb.
 
-| Zeichen                | Bedeutung                                                          |
-| ---------------------- | ------------------------------------------------------------------ |
-| `-->`                  | synchroner Aufruf / Datenfluss                                     |
-| `-.->`                 | asynchrone oder ereignisbasierte Kopplung                          |
-| `API`                  | expliziter Modulvertrag innerhalb des Java-Prozesses               |
-| `REST`                 | HTTP-Schnittstelle zwischen Browser/Client und Backend             |
-| `DB`                   | persistente Datenbank bzw. Entwicklungsdatenbank                   |
-| **Ist**                | im aktuellen Quellcode erkennbar                                   |
-| **Nicht nachgewiesen** | in diesem Repository nicht als implementiert/verifiziert erkennbar |
+| Zeichen  | Bedeutung                                              |
+| -------- | ------------------------------------------------------ |
+| `-->`    | synchroner Aufruf / Datenfluss                         |
+| `-.->`   | ereignisbasierte Kopplung über die Outbox               |
+| `API`    | expliziter Modulvertrag innerhalb des Java-Prozesses   |
+| `REST`   | HTTP-Schnittstelle zwischen Browser/Client und Backend |
 
-Die Diagramme sind als SVG-Dateien abgelegt und in dieser Markdown-Datei
-eingebettet. Sie zeigen die wesentlichen Systemgrenzen, nicht jede einzelne Klasse.
+Die Diagramme liegen als SVG unter [`diagrams/`](diagrams) und zeigen
+Systemgrenzen, nicht jede Klasse.
 
 ## 2. Zusammenfassung
 
 Die Insurance Platform ist ein **modularer Monolith**: ein Spring-Boot-Prozess
-mit getrennten fachlichen Java-Modulen und einer gemeinsamen relationalen
-Datenbank. Das React-/TypeScript-Frontend wird als separater Web-Client
-entwickelt. Im lokalen Entwicklungsbetrieb leitet Vite `/api`-Aufrufe an das
-Backend weiter. Das lokale Compose-Setup umfasst Backend und PostgreSQL; das
-separate Produktions-Compose-Setup ergänzt Caddy als HTTPS-Frontend und Reverse
-Proxy.
+mit fachlichen Modulen und einer PostgreSQL-Datenbank. Das React-Frontend wird
+in Produktion von Caddy ausgeliefert, das auch `/api` an das Backend weiterleitet.
 
-Fachlich umfasst der Code Kunden, Produkte, Policen, Underwriting, Schadenfälle
-und Billing. Die wichtigste implementierte Prozesskette lautet:
+Wichtigste Prozesskette:
 
-1. Eine Police wird gegen Kunde, Produkt und Underwriting geprüft und gespeichert.
-2. Ein Policenereignis kann eine Rechnung im Billing-Modul auslösen.
-3. Ein Schadenfall wird einer Police zugeordnet und beim Erfassen gegen
-   Kundennummer und Deckungszeitraum geprüft.
-4. Eine Sachbearbeitung führt den Claim durch die Statusmaschine.
-5. Bei Genehmigung wird ein Ereignis veröffentlicht; Billing legt daraus
-   höchstens eine Auszahlung an.
+1. Eine Sachbearbeitung stellt eine Police aus; Kunde, Produkt und Underwriting
+   werden geprüft. `PolicyIssuedEvent` erzeugt im Billing genau eine Rechnung.
+2. Ein Kunde oder die Sachbearbeitung meldet einen Schaden zu einer Police.
+   Geprüft werden Eigentum, Schadendatum und Deckung am Schadentag.
+3. Die Sachbearbeitung führt den Claim durch die Statusmaschine.
+4. Bei Genehmigung prüft das Claim-Aggregat Deckungssumme und
+   Jahreshöchstleistung; `ClaimApprovedEvent` erzeugt genau eine Auszahlung.
+5. Ein Admin markiert die Auszahlung als ausgeführt.
 
-Die Backend-REST-API ist weiter ausgebaut als die Bedienoberfläche: Das Frontend
-zeigt aktuell Listen für Claims und Policen. Für etliche im Backend vorhandene
-Schreib- und Verwaltungsoperationen gibt es keine entsprechende UI-Funktion.
+Ereignisse werden in derselben Transaktion wie die fachliche Änderung in einer
+**Outbox** gespeichert und bei Fehlern erneut zugestellt
+([ADR 0002](../adr/0002-spring-modulith-events-outbox.md)).
 
 ## 3. Systemkontext und Laufzeitkomponenten
 
 ![Systemkontext und Laufzeitkomponenten](diagrams/system-context.svg)
 
-### 3.1 Laufzeitgrenzen
+| Komponente            | Verantwortung                                                      | Schnittstelle                          |
+| --------------------- | ------------------------------------------------------------------ | -------------------------------------- |
+| Browser               | Claims- und Policenübersicht, Login, Claim-Statuswechsel            | HTTPS                                  |
+| Caddy (Produktion)    | TLS, Auslieferung des Frontends, Reverse Proxy für `/api`, Swagger | Ports 80/443                           |
+| Vite (Entwicklung)    | Dev-Server, leitet `/api` an das Backend weiter                    | Port 5173                              |
+| Spring-Boot-Anwendung | REST, Geschäftsregeln, Modulkommunikation, Persistenz, Outbox       | Port 8080 (in Produktion nur intern)   |
+| PostgreSQL 15         | Datenbank für `local`, `prod` und Integrationstests                 | JDBC                                   |
+| H2                    | In-Memory-Datenbank des Standardprofils `dev`                      | `jdbc:h2:mem:insurance`                |
 
-| Komponente              | Verantwortung                                         | Schnittstelle                       |
-| ----------------------- | ----------------------------------------------------- | ----------------------------------- |
-| Browser / Mitarbeitende | Bedienung der Claims- und Policenübersicht            | HTTPS/HTTP zum Frontend             |
-| React-/Vite-Frontend    | Darstellung, lokale Filter/Sortierung, HTTP-Aufrufe   | Axios, relative `/api/...`-Pfade    |
-| Spring-Boot-Anwendung   | REST, Geschäftsregeln, Modulkommunikation, Persistenz | REST auf Port 8080                  |
-| H2                      | Standardprofil für lokale Entwicklung                 | In-Memory-JDBC, Datenbank `claimdb` |
-| PostgreSQL              | lokale Compose-/produktionsnahe Datenbank             | JDBC, standardmäßig Port 5432       |
+Alle Fachmodule laufen in **einem** Java-Prozess. Es gibt keine separat
+deploybaren Fachservices und keinen Message Broker.
 
-Das Backend und die Fachmodule laufen in **einem** Java-Prozess. Es gibt im
-Repository keine separat deploybaren Services für Claim, Policy oder Billing
-und keinen Message Broker.
+### 3.1 Technologien
 
-### 3.2 Technologien
-
-| Bereich                  | Technologie laut Projektdateien                                                                  |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| JVM / Sprache            | Java 21                                                                                          |
-| Backend                  | Spring Boot 3.5.6, Spring MVC, Spring Data JPA, Hibernate                                        |
-| Modularchitektur         | Spring Modulith 1.4.4                                                                            |
-| Validierung und Security | Jakarta Bean Validation, Spring Security                                                         |
-| Persistenz               | H2; PostgreSQL 16 (lokales Compose) und 15 (Produktion), Flyway                                  |
-| API-Beschreibung         | springdoc-openapi 2.8.13, Swagger UI                                                             |
-| Frontend                 | React 19, TypeScript 6, Vite 8                                                                   |
-| Frontend-Datenzugriff    | Axios; TanStack Query ist Abhängigkeit, wird in den aktuellen Feature-Hooks jedoch nicht genutzt |
-| Styling/UI               | Tailwind CSS 4, Base UI, eigene React-Komponenten                                                |
-| Build/Tests              | Maven Wrapper, npm, JUnit/Spring Boot Test, Spring Modulith Test                                 |
-
-Die Versionsangaben in `package.json` enthalten teilweise Versionsbereiche.
-Eine genaue, reproduzierbare Frontend-Version ergibt sich aus der jeweiligen
-Lockdatei und installierten Abhängigkeiten.
+| Bereich            | Technologie                                                              |
+| ------------------ | ------------------------------------------------------------------------ |
+| Backend            | Java 21, Spring Boot 3.5.6, Spring MVC, Spring Data JPA, Hibernate       |
+| Modularchitektur   | Spring Modulith 1.4.4 inkl. JPA Event Publication Registry (Outbox)      |
+| Sicherheit         | Spring Security (HTTP Basic, Methoden-Security), eigener Rate-Limiter    |
+| Persistenz         | PostgreSQL 15 mit Flyway; H2 im Profil `dev`                              |
+| API-Beschreibung   | springdoc-openapi 2.8.13, Swagger UI                                     |
+| Betrieb            | Spring Boot Actuator (Health), strukturierte JSON-Logs (ECS) in `prod`    |
+| Frontend           | React 19, TypeScript 6, Vite 8, Tailwind CSS 4, Axios                    |
+| Tests              | JUnit 5, Mockito, Spring Modulith Test, Testcontainers 1.21, Awaitility, Vitest 4, Testing Library |
+| Auslieferung       | Docker, Docker Compose, Caddy, GitHub Actions, GitHub Container Registry |
 
 ## 4. Backend-Architektur
 
-### 4.1 Architekturstil und Abhängigkeitsrichtung
+### 4.1 Architekturstil
 
-Das Backend kombiniert fachliche Modularisierung mit Spring MVC und JPA. Ein
-REST-Controller übersetzt HTTP in DTOs und ruft einen Anwendungsservice auf.
-Services koordinieren Fachregeln und Modul-APIs; Mapper wandeln zwischen
-Entities, Snapshots und Response-DTOs. Repositories kapseln Datenzugriff.
+Ein Controller übersetzt HTTP in DTOs und ruft einen Anwendungsservice des
+eigenen Moduls. Services koordinieren Modul-APIs, Persistenz, Audit und Events;
+fachliche Invarianten liegen in den Domänenobjekten (`Claim`, `Policy`,
+`Payout`, `Money`). Repositories liegen nach
+[ADR 0003](../adr/0003-persistenzzugriff-im-domain-modul.md) im `domain`-Paket
+des jeweiligen Moduls.
 
 ![Fachmodule und Modulverträge](diagrams/module-interfaces.svg)
 
-Interne Modulaufrufe sind gewöhnliche Java-Aufrufe über veröffentlichte
-`XxxApi`-Verträge; sie sind keine Netzwerkaufrufe. Fachereignisse bilden eine
-separate, lose gekoppelte Benachrichtigung. `ModularityTest` prüft
-Modulabhängigkeiten und soll unzulässige Zugriffe/Zyklen verhindern.
+`ModularityTest` prüft mit Spring Modulith, dass Module nur veröffentlichte
+Verträge anderer Module verwenden und keine Zyklen entstehen.
 
-### 4.2 Fachmodule
+### 4.2 Module
 
-| Modul          | Zuständigkeit                                                              | Hauptbestandteile                                                                 |
-| -------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `customer`     | Kundenstammdaten und Kundenzusammenfassungen                               | `CustomerApi`, `CustomerService`, `Customer`, Repository, Controller/DTOs          |
-| `product`      | Versicherungsprodukte und Angebotsparameter                                | `ProductApi`, `ProductService`, `Product`, Repository, Controller/DTOs             |
-| `underwriting` | einfache Ausgabeberechtigung für Kunde und Produkt                         | `UnderwritingApi`, `UnderwritingService`, Entscheidung/DTO, Controller            |
-| `policy`       | Policenausgabe, Laufzeit, Status, Policen-Snapshots                        | `PolicyApi`, `PolicyService`, `Policy`, Repository, Controller/DTOs               |
-| `claim`        | Schadenmeldung, Prüfung, Statuswechsel und Genehmigung                     | `application.ClaimService`, Domainmodell/Repository, Events, Controller/DTOs |
-| `billing`      | Rechnungserzeugung bei Policenausgabe und Auszahlung bei Claim-Genehmigung | Listener, `BillingService`, Invoice-/Payout-Domäne, Controller                    |
-| `shared`       | querschnittliche Web-, Security-, Persistenz- und Domain-Helfer            | Security, Auditing, `Money`, Exception-Handler, Jackson/OpenAPI-Konfiguration     |
+| Modul          | Zuständigkeit                                                                 | Veröffentlicht                                        |
+| -------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `customer`     | Kundenstammdaten                                                              | `CustomerApi`, `CustomerSummary`                      |
+| `product`      | Produktkatalog inkl. Deckungssumme und Jahreshöchstleistungs-Faktor           | `ProductApi`, `ProductSummary`                        |
+| `underwriting` | Ausgabeberechtigung (Kunde existiert, Produkt aktiv)                           | `UnderwritingApi`                                     |
+| `policy`       | Ausgabe, Stornierung mit Wirksamkeitsdatum, Deckung, Versicherungsjahre        | `PolicyApi`, `PolicySnapshot`, `PolicyYear`, `PolicyIssuedEvent` |
+| `claim`        | Schadenmeldung, Eigentumsprüfung, Statusmaschine, Genehmigungsregeln          | `ClaimApprovedEvent`                                  |
+| `billing`      | Rechnungen und Auszahlungen aus Events                                         | –                                                     |
+| `audit`        | Append-only Änderungsverlauf                                                  | `AuditTrailApi`, `AuditContext`                       |
+| `shared`       | Querschnitt: `shared::domain` (Money, DomainException), `shared::web` (Fehler, Logging), `shared::security` (Rollen, Login, Rate-Limit, Eigentumsprüfung), Konfiguration | Named Interfaces |
 
-Die gemeinsame Orientierung lautet `application`, `domain`, `controller` und
-`dto`; `infrastructure`, `mapper` und `events` kommen hinzu, wenn die jeweilige
-Funktion sie benötigt. Alle Fachmodule verwenden Spring-Data-Repositories direkt
-in `domain`. Repository-Ports und Adapter werden nicht zusätzlich eingeführt,
-solange sie keine tatsächliche technische Grenze oder Mapping-Aufgabe übernehmen.
+Synchrone Abhängigkeiten: `underwriting → customer, product`;
+`policy → customer, product, underwriting, audit`;
+`claim → policy, audit, shared::security`. `billing` reagiert auf Events.
 
-### 4.3 Interne Modul-Schnittstellen
-
-| Vertrag           | Aufrufer → Anbieter                   | Zweck                                                                                                                       |
-| ----------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `CustomerApi`     | Policy und Underwriting → Customer    | Existenzprüfung und Lesen benötigter Kundendaten/-zusammenfassungen                                                         |
-| `ProductApi`      | Policy und Underwriting → Product     | Produktdaten abrufen und Produktaktivität berücksichtigen                                                                   |
-| `UnderwritingApi` | Policy → Underwriting                 | `canIssue(customerId, productId)`                                                                                           |
-| `PolicyApi`       | Claim → Policy                        | Einzel-/Batch-Snapshots und `isActiveAt(policyId, date)`                                                                    |
-
-Wesentliche, im Code vorhandene Signaturen:
+### 4.3 Modulverträge
 
 ```java
-// Policy-Modul: Vertrag, den Claim zur Deckungsprüfung verwendet
+// PolicyApi – genutzt von claim
 PolicySnapshot getSnapshot(Long policyId);
-List<PolicySnapshot> getSnapshots(Collection<Long> policyIds);
-boolean isActiveAt(Long policyId, LocalDate date);
+List<PolicySnapshot> getSnapshots(Collection<Long> policyIds);   // Batch, eine Abfrage
+boolean isCoveredOn(Long policyId, LocalDate lossDate);          // Schadenereignisprinzip
+PolicySnapshot lockForClaimApproval(Long policyId);              // SELECT … FOR UPDATE
 
-// Underwriting-Modul
+// CustomerApi / ProductApi – genutzt von policy und underwriting
+CustomerSummary findById(Long id);   List<CustomerSummary> findByIds(Collection<Long> ids);
+ProductSummary  findById(Long id);   List<ProductSummary>  findByIds(Collection<Long> ids);
+
+// UnderwritingApi
 boolean canIssue(Long customerId, Long productId);
-
 ```
 
-`PolicySnapshot` und die Customer-/Product-Summary-Typen transportieren für
-Modulgrenzen benötigte Daten, statt JPA-Entities anderer Module direkt
-weiterzureichen. Der Policy-Snapshot enthält die für Claim relevanten Policen-
-und Kundendaten, darunter Policen-ID, Kundennummer, Laufzeit, Status und
-Deckungsgrenze.
+Modulgrenzen transportieren unveränderliche Snapshots und Summaries, keine
+JPA-Entities. Listen werden über Batch-Methoden geladen; `PolicyQueryCountTest`
+stellt sicher, dass die Policenliste höchstens drei SQL-Abfragen benötigt.
 
-### 4.4 Ereignisverträge
+### 4.4 Ereignisse und Outbox
 
-| Ereignis               | Publisher                                 | Beobachtete Wirkung                                                                                  |
-| ---------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `PolicyIssuedEvent`    | `PolicyService.issue`                     | `PolicyIssuedListener` im Billing prüft auf vorhandene Rechnung und erzeugt andernfalls eine Invoice |
-| `ClaimApprovedEvent`   | `ClaimService.updateClaim` bei `APPROVED` | `ClaimApprovedListener` im Billing legt andernfalls eine Payout an                                   |
+| Ereignis             | Publisher                                   | Wirkung im Billing                                   |
+| -------------------- | ------------------------------------------- | ---------------------------------------------------- |
+| `PolicyIssuedEvent`  | `PolicyService.issue`                       | `PolicyIssuedListener` legt genau eine Rechnung an   |
+| `ClaimApprovedEvent` | `ClaimService.updateClaim` bei `APPROVED`   | `ClaimApprovedListener` legt genau eine Auszahlung an |
 
-Die Listener verwenden Spring Modulith `@ApplicationModuleListener`. Beide
-Billing-Listener prüfen vor dem Einfügen auf ein vorhandenes Objekt; zusätzlich
-ist `payouts.claim_id` in der Baseline eindeutig. Eine persistente Outbox,
-externe Event-Infrastruktur oder garantierte Wiederzustellung bei
-Prozessausfall ist in der Projektkonfiguration **nicht nachgewiesen**. Die ADR
-`docs/adr/0002-spring-modulith-events-outbox.md` beschreibt die Outbox als
-mögliche Ergänzung, nicht als zugesicherte aktuelle Betriebsfunktion.
+- Ereignisse werden in derselben Transaktion in `event_publication` gespeichert
+  und asynchron nach dem Commit zugestellt (`@ApplicationModuleListener`).
+- Unvollständige Zustellungen werden beim Start und zur Laufzeit jede Minute
+  erneut versucht, sobald sie älter als fünf Minuten sind
+  (`EventPublicationMaintenance`); abgeschlossene Einträge werden nach sieben
+  Tagen gelöscht.
+- Zustellung ist *at-least-once*. Die Listener sind idempotent und durch
+  Unique-Constraints abgesichert (`payouts.claim_id`, `invoices.policy_id`).
 
-## 5. Frontend-Architektur
+## 5. Fachregeln
 
-### 5.1 Aufbau
-
-`frontend/src/main.tsx` mountet die React-Anwendung; `App.tsx` schaltet über
-lokalen React-State zwischen zwei Ansichten um. Ein URL-Router ist nicht
-konfiguriert.
-
-| Feature | UI-Bausteine                                                                     | Datenzugriff und sichtbare Funktion                              |
-| ------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| Claims  | `ClaimForm` (tatsächlich Listenansicht), `ClaimStats`, `ClaimTable`, `useClaims` | Claims seitenweise laden, aktuelle Seite lokal filtern/sortieren und Summen darstellen |
-| Policen | `PolicyManagement`, `PolicyStats`, `PolicyTable`, `usePolicies`                  | Policen laden, lokal filtern/sortieren und Kennzahlen darstellen |
-
-Die API-Services verwenden Axios und relative Pfade (`/api/claims`,
-`/api/policies`). Hooks verwalten Lade-/Fehler-/Such-/Sortierzustand mit
-`useState` und `useEffect`. Die React Query-Abhängigkeit ist im aktuellen
-Datenfluss nicht eingebunden. Vite proxyt im Entwicklungsserver `/api` an
-`http://localhost:8080`.
-
-### 5.2 Grenzen der aktuellen Oberfläche
-
-- Der Name `ClaimForm` ist historisch/missverständlich: Die Komponente zeigt
-  eine Claims-Übersicht; sie sendet keine Schadenmeldung.
-- Die Policenansicht ist ebenfalls eine Leseansicht.
-- Claim-Status ändern, Claim löschen, Police ausstellen/kündigen, Kunden,
-  Produkte, Underwriting, Rechnungen und Auszahlungen haben keine entsprechende
-  Frontend-Bedienoberfläche.
-- „Details“ in der Claim-Tabelle ist keine echte Detailnavigation.
-- Die Services konfigurieren keine HTTP-Basic-Anmeldedaten und setzen keinen
-  Authentifizierungsheader. Das geschützte Backend weist nicht authentifizierte
-  API-Aufrufe zurück. Die UI hat daher derzeit keinen vollständigen Login-Fluss.
-- Die Backend-Antwort und der Frontend-Claim-Typ sind nicht vollständig
-  deckungsgleich; Felder wie Status/Policy-Zuordnung fehlen im Frontend-Typ.
-
-## 6. HTTP- und REST-Schnittstellen
-
-### 6.1 Gemeinsame Konventionen
-
-- Basispräfix: `/api`
-- JSON über Spring MVC; Request-DTOs werden teilweise mit Bean Validation
-  geprüft.
-- OpenAPI: `/v3/api-docs`; Swagger UI: `/swagger-ui.html`.
-- Nicht gefunden: HTTP 404 mit `ProblemDetail`.
-- Domain-/Zustands-/Argumentfehler: HTTP 422 mit `ProblemDetail`.
-- Bean-Validation-, Authentifizierungs- und Autorisierungsfehler werden nicht
-  durch den genannten globalen Exception-Handler in ein eigenes gemeinsames
-  fachliches Format überführt.
-- IDs sind numerische Datenbank-IDs (Long).
-
-### 6.2 Routenübersicht
-
-Alle Routen sind durch HTTP Basic geschützt, sofern sie nicht explizit für
-Dokumentation, H2-Konsole oder Health freigegeben sind. Methodenrollen gelten
-zusätzlich zur allgemeinen Authentifizierung.
-
-| Methode und Pfad                              | Zweck / Ein- und Ausgabe                         | Zugriff                |
-| --------------------------------------------- | ------------------------------------------------ | ---------------------- |
-| `GET /api/claims`                             | Claim-Liste als `ClaimResponse[]`                | angemeldet             |
-| `GET /api/claims/{id}`                        | Claim-Details                                    | angemeldet             |
-| `POST /api/claims`                            | `CreateClaimRequest` → `ClaimResponse`, HTTP 201 | CUSTOMER, CLERK, ADMIN |
-| `PATCH /api/claims/{id}/status?newStatus=...` | Statuswechsel → Claim-Antwort                    | CLERK, ADMIN           |
-| `DELETE /api/claims/{id}`                     | Claim löschen, HTTP 204                          | CLERK, ADMIN           |
-| `GET /api/policies`                           | Policenliste                                     | angemeldet             |
-| `GET /api/policies/{id}`                      | Policendetail                                    | angemeldet             |
-| `POST /api/policies`                          | `IssuePolicyRequest` → Police, HTTP 201          | CLERK, ADMIN           |
-| `POST /api/policies/{id}/cancel`              | Police kündigen                                  | CLERK, ADMIN           |
-| `GET /api/customers`                          | Kundenliste                                      | CLERK, ADMIN           |
-| `GET /api/customers/{id}`                     | Kundendetail                                     | CUSTOMER, CLERK, ADMIN |
-| `POST /api/customers`                         | `CreateCustomerRequest` → Kunde, HTTP 201        | CLERK, ADMIN           |
-| `GET /api/products`                           | Produktliste                                     | angemeldet             |
-| `GET /api/products/{id}`                      | Produktdetail                                    | angemeldet             |
-| `POST /api/products`                          | `CreateProductRequest` → Produkt, HTTP 201       | CLERK, ADMIN           |
-| `POST /api/underwriting/check`                | `UnderwritingCheckRequest` → Entscheidung        | CLERK, ADMIN           |
-| `GET /api/payouts`                            | Auszahlungsliste                                 | CLERK, ADMIN           |
-| `POST /api/payouts/{id}/pay`                  | Auszahlung als bezahlt/ausgeführt markieren      | ADMIN                  |
-
-Die Detailfelder und Schemaangaben sind zur Laufzeit aus OpenAPI abrufbar.
-Die Schnittstellenklassen und Controller sind in den jeweiligen
-`*/controller`-Paketen unter
-`backend/src/main/java/de/hunar/insurance/` implementiert.
-
-### 6.3 Zentrale Request-Daten
-
-| Request                    | Wesentliche Felder                                                               |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| `CreateClaimRequest`       | `policyId`, `occurredOn`, `customerNumber`, `claimType`, `description`, `amount` |
-| `IssuePolicyRequest`       | `customerId`, `productId`, `validFrom`, `validTo`                                |
-| `CreateCustomerRequest`    | Kundennummer, Anzeigename, E-Mail                                                |
-| `CreateProductRequest`     | Produktcode, Name, Deckungsgrenze, Prämie                                        |
-| `UnderwritingCheckRequest` | `customerId`, `productId`                                                        |
-
-Beim Claim prüft die Anwendung insbesondere eine vorhandene Police, eine nicht
-in der Zukunft liegende Schadendatum-Angabe, einen positiven Betrag, die
-Übereinstimmung der übermittelten Kundennummer mit der Police und die Deckung
-am Schadentag. Beim Genehmigen werden Deckungszeitraum und Deckungslimit erneut
-geprüft. Policenausgabe prüft Kunde, Produkt-/Underwriting-Eignung und ein
-Enddatum nach dem Startdatum.
-
-## 7. Fachliche Abläufe
-
-### 7.1 Police ausstellen und Rechnung anlegen
-
-![Ablauf: Policenausgabe](diagrams/policy-issuance.svg)
-
-Der Policy-Service liest Produkt- und Kundendaten über Modul-APIs, ruft
-Underwriting auf, erstellt eine aktive Police und publiziert
-`PolicyIssuedEvent`. Der Billing-Listener prüft, ob für die Police bereits eine
-Rechnung existiert, und erstellt andernfalls eine offene Rechnung mit der
-Prämie. Es gibt keine externe Rechnungs- oder Zahlungsroute in der aktuellen
-Controller-Oberfläche.
-
-### 7.2 Claim erfassen, prüfen und auszahlen
-
-![Ablauf: Claim bis Auszahlung](diagrams/claim-to-payout.svg)
-
-Statusübergänge des Claims:
+### 5.1 Claim-Lebenszyklus
 
 | Ausgang     | Zulässige nächste Zustände |
 | ----------- | -------------------------- |
 | `RECEIVED`  | `IN_REVIEW`                |
 | `IN_REVIEW` | `APPROVED` oder `REJECTED` |
-| `APPROVED`  | keine weiteren Übergänge   |
-| `REJECTED`  | keine weiteren Übergänge   |
+| `APPROVED`  | –                          |
+| `REJECTED`  | –                          |
 
-Ein Übergang nach `APPROVED` ist erst nach erneuter Deckungsprüfung möglich.
-Der Claim-Service veröffentlicht danach `ClaimApprovedEvent`; der Listener legt
-die Auszahlung an, wenn für den Claim noch keine existiert. Ein ADMIN kann die
-Auszahlung anschließend über die Billing-Route als bezahlt/ausgeführt markieren.
+Claims werden nicht gelöscht, sondern abgelehnt; so bleibt der Audit-Verlauf
+erhalten. `APPROVED` ist nur über `Claim.approve(...)` erreichbar, das alle
+Genehmigungsregeln prüft.
 
-## 8. Fachliches Datenmodell und Persistenz
+### 5.2 Deckung (Schadenereignisprinzip)
 
-### 8.1 Entitäten
+Details in [ADR 0005](../adr/0005-deckungsregeln.md).
 
-| Tabelle     | Fachliche Bedeutung             | Wesentliche Daten                                                                                                            |
-| ----------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `customers` | Versicherungsnehmer/Kundenstamm | eindeutige Kundennummer, Name, eindeutige E-Mail, aktiv                                                                      |
-| `products`  | Produktkatalog                  | eindeutiger Code, Name, Deckungsgrenze, Prämie, aktiv                                                                        |
-| `policies`  | ausgestellte Police             | Kunden-/Produkt-ID, Laufzeit, gespeicherte Deckungsgrenze und Prämie, Status                                                 |
-| `claims`    | Schadenmeldung                  | Policy-ID, Typ, Beschreibung, Betrag, Status, Schadendatum, Erstellungs-/Änderungszeit |
-| `invoices`  | Rechnung zur Police             | eindeutige Policy-ID, Kunden-ID, Betrag, Währung, Status                                                                     |
-| `payouts`   | Auszahlung zu genehmigtem Claim | eindeutige Claim-ID, Policy-ID, Betrag, Währung, Status                                                                      |
+- Gedeckt ist ein Schadendatum von `valid_from` bis zum früheren Datum aus
+  `valid_to` und `cancelled_on`, jeweils einschließlich (`Policy.covers`).
+- Eine Stornierung hat ein Wirksamkeitsdatum (Standard: heute) und wirkt nie
+  rückwirkend. Offene Claims werden normal weiterbearbeitet; Schäden aus der
+  Laufzeit können nachgemeldet werden.
 
-Geldbeträge werden als `BigDecimal` bzw. Money-Wertobjekt behandelt und
-persistieren mit Dezimalskala. Das Claim-Genehmigungsereignis verwendet im
-aktuellen Service `Money.eur(...)`.
+### 5.3 Genehmigung
 
-### 8.2 Beziehungen und Schemahinweise
+1. Statusübergang zulässig (`IN_REVIEW → APPROVED`).
+2. Police wird gesperrt (`lockForClaimApproval`), damit parallele
+   Genehmigungen nacheinander laufen.
+3. Schadendatum gedeckt.
+4. Betrag ≤ Deckungssumme je Schadenfall.
+5. Falls die Police eine Jahreshöchstleistung hat: Betrag ≤ Jahreshöchstleistung
+   minus bereits genehmigte Beträge im Versicherungsjahr des Schadendatums.
+   Versicherungsjahre beginnen am Jahrestag von `valid_from` (`PolicyYear`).
 
-- `policies.customer_id` und `policies.product_id` haben in der Baseline
-  deklarierte Fremdschlüssel.
-- In der Baseline ist `payouts.claim_id` eindeutig, ebenso
-  `invoices.policy_id`.
-- Für `claims.policy_id`, `payouts.policy_id` und `invoices.customer_id` sind
-  in der Baseline keine entsprechenden SQL-Fremdschlüssel deklariert.
-- Fachliche Modulbeziehungen werden überwiegend über IDs und Modul-APIs
-  aufgelöst, nicht durch JPA-Entity-Graphen zwischen Modulen.
-- Migration `V7__data_integrity.sql` ergänzt Check-Constraints für nichtnegative
-  Beträge und `policies.valid_to > policies.valid_from`.
-- Die Claim-Entity verwendet `occurred_on` und `updated_at`. Migration `V8`
-  ergänzt diese Felder und befüllt vorhandene Werte; Migration `V9` entfernt
-  `customer_number`, nachdem bestehende Claims sicher einer Police zugeordnet
-  wurden.
-- `V10` ergänzt synthetische Demo-Kunden und Geschäftsdaten. Sie sind keine
-  produktiven Kundendaten.
-- `V11` ergänzt optimistische Versionsfelder für Claims, Policen und Auszahlungen.
-  Statusänderungen erfolgen über fachliche Entity-Methoden; Bean Validation und
-  Constructor-Invarianten schützen persistierte Geschäftsdaten zusätzlich.
-- `V12` legt `audit_entries` als append-only Änderungsverlauf für fachliche
-  Erstellungen, Statuswechsel und Löschungen an. Der Verlauf speichert Actor,
-  Zeitpunkt, Korrelations-ID und eine datensparsame Zusammenfassung. Admins können
-  Einträge je Entität paginiert über `GET /api/audit-trail` einsehen.
-- Die Baseline `V1` erzwingt bereits höchstens eine Rechnung pro Police über
-  `invoices.policy_id UNIQUE`; `Invoice.policyId` bildet diese Regel ebenfalls
-  im JPA-Mapping ab. Der PostgreSQL-Integrationstest prüft die komplette
-  Flyway-Historie und die Constraint-Verletzung gegen PostgreSQL via Testcontainers.
-- Claim-Zeitstempel werden über Spring Data Auditing mit einer UTC-Clock gesetzt.
-  Gleichzeitige Änderungen an Claims, Policen und Auszahlungen werden über
-  `@Version` erkannt; ein Konflikt wird als HTTP 409 beantwortet.
+In den Demodaten hat die private Haftpflicht eine 2-fache Maximierung.
 
-### 8.3 Datenbankprofile und Migrationshinweise
+### 5.4 Weitere Regeln
 
-Das Standardprofil `dev` verwendet H2-In-Memory und Hibernate
-`ddl-auto: update`; Flyway ist dort deaktiviert und `db/dev-data.sql` wird
-geladen. Das `local`-Profil verwendet PostgreSQL, Hibernate `validate` und
-aktiviertes Flyway.
+- Schadendatum darf nicht in der Zukunft liegen (injizierte UTC-`Clock`).
+- Die übermittelte Kundennummer muss zur Police passen.
+- Eine Police kann nur ausgestellt werden, wenn Underwriting zustimmt und
+  `valid_to` nach `valid_from` liegt.
+- Nur eine Auszahlung im Status `CREATED` kann ausgeführt werden.
 
-Die Migrationen `V1` bis `V11` sind bereits Teil der
-Projektgeschichte. Änderungen an bestehenden Migrationen oder das Umbenennen
-bereits angewandter Versionen können bestehende Datenbanken beschädigen.
-Ergänzungen müssen deshalb mit einer neuen, eindeutigen Flyway-Version erfolgen.
+## 6. HTTP- und REST-Schnittstellen
 
-Die Claim-zu-Policy-Änderung wird in `V8` geführt. Sie
-verknüpft bestehende Schadenfälle anhand der Kundennummer **nur dann
-automatisch**, wenn genau eine Police zu diesem Kunden gehört. Fehlt der Kunde,
-gibt es keine bzw. mehrere Policen oder widerspricht eine vorhandene
-`policy_id` dieser Zuordnung, bricht die PostgreSQL-Migration vor Änderungen an
-den Claim-Daten mit einer verständlichen Fehlermeldung ab. Vor dem erneuten
-Start müssen solche Fälle fachlich zugeordnet werden. Nicht erkannte alte
-Claim-Typen stoppen die Migration ebenfalls, statt stillschweigend umgedeutet
-zu werden.
+### 6.1 Konventionen
 
-Für historische Claims ohne tatsächliches Schadendatum wird `occurred_on`
-einmalig aus dem bisherigen `created_at` abgeleitet. Das ist ein dokumentierter
-Fallback, kein Nachweis des echten Schadentags. `V9` entfernt anschließend
-`customer_number`, da die Police die Kundenbeziehung liefert. `V10` lädt
-synthetische Demo-Daten für die Live-Demoumgebung. Die vollständige V1–V10-
-Migration gegen PostgreSQL ist noch nicht durch einen Standard-Integrationstest
-abgesichert und sollte vor einer Freigabe mit einer frischen Datenbank sowie
-repräsentativen eindeutigen, mehrdeutigen und nicht zuordenbaren Altdaten
-getestet werden.
+- Basispräfix `/api`, JSON. OpenAPI unter `/v3/api-docs`, Swagger UI unter
+  `/swagger-ui.html`.
+- Fehler als `ProblemDetail` (`application/problem+json`):
 
-## 9. Sicherheit und Vertrauensgrenzen
+| Status | Ursache                                                                   |
+| -----: | ------------------------------------------------------------------------- |
+|    400 | Request-Validierung, unlesbarer Body                                      |
+|    401 | nicht angemeldet / falsches Passwort                                      |
+|    403 | Rolle fehlt, fremde Police (Eigentumsprüfung), `DELETE`                   |
+|    404 | Ressource nicht gefunden                                                  |
+|    409 | gleichzeitige Änderung (optimistisches Locking)                           |
+|    422 | Fachregel verletzt (`DomainException`, Invarianten)                       |
+|    429 | Rate-Limit überschritten, mit `Retry-After`                               |
+|    500 | unerwarteter Fehler, z. B. `IllegalStateException` (Programmierfehler)    |
 
-Die Anwendung nutzt HTTP Basic und in-memory definierte Benutzer mit Rollen
-`CUSTOMER`, `CLERK` und `ADMIN`. Passwörter werden über Spring
-`DelegatingPasswordEncoder` kodiert. Diese Einrichtung ist ein
-Entwicklungsmechanismus, keine produktive Identitätsverwaltung; auch die
-Produktionsbereitstellung konfiguriert derzeit keinen externen
-Identitätsanbieter.
+- Zeitpunkte sind UTC-Instants mit `Z` (z. B. `2026-09-24T17:00:00Z`), Daten
+  ISO-Daten (`2026-09-24`). IDs sind numerische Datenbank-IDs.
+- Jeder Request erhält eine `X-Request-Id`, die auch im Log steht.
 
-### 9.1 Autorisierung
+### 6.2 Routen und Berechtigungen
 
-- Der Security-Filter verlangt standardmäßig Authentifizierung.
-- Swagger/OpenAPI-Pfade, `/actuator/health` und H2-Konsole sind explizit
-  freigegeben; die tatsächliche Verfügbarkeit eines Health-Endpunkts hängt auch
-  von der Actuator-Abhängigkeit ab.
-- Controller beschränken Schreiboperationen zusätzlich über Rollen.
-- CUSTOMER kann laut Claim-Controller Claims anlegen und Claims lesen, aber es
-  ist keine Bindung der Abfrage an den angemeldeten Kunden erkennbar.
-- Es gibt keine im Code sichtbare kundenspezifische Mandantentrennung.
-- CSRF ist deaktiviert. Es ist kein Token-/OAuth-/Session-Login-Fluss im
-  Frontend implementiert.
-- Demo-Zugangsdaten aus der README sind ausschließlich für lokale Entwicklung
-  bestimmt; keine Standardzugangsdaten in produktive Umgebungen übernehmen.
+| Methode und Pfad                          | Zweck                                          | Zugriff                        |
+| ----------------------------------------- | ---------------------------------------------- | ------------------------------ |
+| `GET /api/claims`                         | Paginierte Claim-Übersicht                     | öffentlich                     |
+| `GET /api/claims/{id}`                    | Claim-Details                                  | öffentlich                     |
+| `POST /api/claims`                        | Schaden melden, HTTP 201                       | CUSTOMER (nur eigene Policen), CLERK, ADMIN |
+| `PATCH /api/claims/{id}/status`           | Statuswechsel (`?newStatus=`)                  | CLERK, ADMIN                   |
+| `GET /api/policies`, `/{id}`              | Policen                                        | öffentlich                     |
+| `POST /api/policies`                      | Police ausstellen, HTTP 201                    | CLERK, ADMIN                   |
+| `POST /api/policies/{id}/cancel`          | Stornieren (`?effectiveOn=`, Standard heute)   | CLERK, ADMIN                   |
+| `GET /api/customers`                      | Kundenliste inkl. E-Mail                       | CLERK, ADMIN                   |
+| `GET /api/customers/{id}`                 | Kunde ohne E-Mail                              | öffentlich                     |
+| `POST /api/customers`                     | Kunde anlegen                                  | CLERK, ADMIN                   |
+| `GET /api/products`, `/{id}`              | Produkte                                       | öffentlich                     |
+| `POST /api/products`                      | Produkt anlegen (optional Jahreshöchstleistung) | ADMIN                         |
+| `POST /api/underwriting/check`            | Ausgabeberechtigung prüfen                     | CLERK, ADMIN                   |
+| `GET /api/payouts`                        | Auszahlungen                                   | öffentlich                     |
+| `POST /api/payouts/{id}/pay`              | Auszahlung ausführen                           | ADMIN                          |
+| `GET /api/audit-trail`                    | Änderungsverlauf je Entität, paginiert         | ADMIN                          |
+| `GET /api/auth/me`                        | angemeldeten Benutzer prüfen                   | angemeldet                     |
+| `GET /api/auth/demo-accounts`             | veröffentlichte Demo-Zugänge                   | öffentlich                     |
+| `DELETE /api/**`                          | –                                              | gesperrt                       |
+| `GET /actuator/health/**`                 | Liveness/Readiness für den Container           | intern (von Caddy nicht geroutet) |
 
-### 9.2 Browser- und API-Verbindung
+Detailschemata stehen in OpenAPI. Die Controller liegen in den
+`*/controller`-Paketen unter `backend/src/main/java/de/hunar/insurance/`.
 
-Die Claims-Controller-Klasse nennt `http://localhost:5173` als CORS-Origin.
-Im Entwicklungssetup läuft der Browserverkehr regulär über den Vite-Proxy,
-sodass die `/api`-Anfrage aus Browsersicht same-origin ist. In einer
-produktiven Bereitstellung müssen Frontend-Origin, CORS und Authentifizierung
-explizit zur Zieltopologie passen.
+## 7. Abläufe
+
+### 7.1 Police ausstellen und Rechnung anlegen
+
+![Ablauf: Policenausgabe](diagrams/policy-issuance.svg)
+
+`PolicyService.issue` liest Produkt und Kunde über die Modul-APIs, ruft
+Underwriting, übernimmt Deckungssumme, Prämie und Jahreshöchstleistung aus dem
+Produkt in die Police und speichert Police, Audit-Eintrag und
+`PolicyIssuedEvent` in einer Transaktion. Der Billing-Listener legt die
+Rechnung an, falls noch keine existiert.
+
+### 7.2 Claim erfassen, genehmigen und auszahlen
+
+![Ablauf: Claim bis Auszahlung](diagrams/claim-to-payout.svg)
+
+Beim Erfassen prüft `ClaimService` Eigentum (`CustomerAccessPolicy`),
+Kundennummer, Schadendatum und Deckung. Die Genehmigung folgt Abschnitt 5.3 und
+speichert `ClaimApprovedEvent` in der Outbox; Billing legt die Auszahlung an.
+
+## 8. Datenmodell und Persistenz
+
+### 8.1 Tabellen
+
+| Tabelle             | Bedeutung                     | Wesentliche Daten                                                                 |
+| ------------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| `customers`         | Kundenstamm                   | eindeutige Kundennummer und E-Mail, Name, aktiv                                   |
+| `products`          | Produktkatalog                | eindeutiger Code, Deckungssumme, Prämie, `annual_aggregate_factor`, aktiv          |
+| `policies`          | ausgestellte Police           | Kunde, Produkt, Laufzeit, Deckungssumme, Prämie, `annual_aggregate_limit`, Status, `cancelled_on`, Version |
+| `claims`            | Schadenmeldung                | Police, Typ, Beschreibung, Betrag, Status, Schadendatum, `created_at`/`updated_at` (timestamptz), Version |
+| `invoices`          | Rechnung zur Police           | eindeutige Police, Kunde, Betrag, Währung, Status                                 |
+| `payouts`           | Auszahlung zum Claim          | eindeutiger Claim, Police, Betrag, Währung, Status, Version                       |
+| `audit_entries`     | Änderungsverlauf              | Zeitpunkt, Actor, Aktion, Entität, Request-ID, Zusammenfassung                    |
+| `event_publication` | Outbox                        | Listener, Event-Typ, serialisiertes Event (JSON), Veröffentlichung, Abschluss      |
+
+Module referenzieren einander über IDs, nicht über JPA-Beziehungen.
+Geldbeträge sind `numeric` mit zwei Nachkommastellen bzw. `Money`.
+
+### 8.2 Flyway-Migrationen
+
+| Version   | Inhalt                                                                         |
+| --------- | ------------------------------------------------------------------------------ |
+| V1–V6     | Baseline-Schema und Indizes                                                    |
+| V7        | Check-Constraints für Beträge und Laufzeit                                     |
+| V8–V9     | Claims sicher an Policen anbinden, `customer_number` entfernen ([ADR 0004](../adr/0004-claim-policy-migration.md)) |
+| V10       | synthetische Demodaten                                                         |
+| V11       | Versionsfelder für optimistisches Locking                                      |
+| V12       | Audit-Trail                                                                    |
+| V13       | Outbox-Tabellen `event_publication` und `event_publication_archive`            |
+| V14       | Claim-Zeitstempel als `timestamp with time zone` (Werte als UTC übernommen)     |
+| V15       | `policies.cancelled_on` mit Check-Constraint                                    |
+| V16       | Jahreshöchstleistung für Produkte und Policen, Index für die Summenabfrage     |
+
+Angewandte Migrationen werden nie geändert; neue Änderungen bekommen eine neue
+Version. `PostgresPersistenceIntegrationTest` führt alle Migrationen gegen
+PostgreSQL 15 aus und startet die Anwendung mit `ddl-auto: validate`; in der CI
+wird der Test nie übersprungen.
+
+### 8.3 Profile
+
+| Profil           | Datenbank                  | Schema                          | Zusatz                                        |
+| ---------------- | -------------------------- | ------------------------------- | --------------------------------------------- |
+| `dev` (Standard) | H2 `jdbc:h2:mem:insurance` | Hibernate `create-drop`, kein Flyway | Seed `db/dev-data.sql`; H2-TCP-Server auf 9123 |
+| `local`          | PostgreSQL `localhost:5432` | Flyway, Hibernate `validate`    | lokales Compose                               |
+| `prod`           | PostgreSQL per Umgebung    | Flyway, Hibernate `validate`    | JSON-Logs; V10 lädt Demodaten                 |
+
+Das Profil `dev` verwendet kein Flyway; Migrationen werden deshalb über den
+PostgreSQL-Integrationstest und das Profil `local` geprüft.
+
+## 9. Sicherheit
+
+### 9.1 Authentifizierung
+
+- HTTP Basic, zustandslos (keine Session, daher kein CSRF-Token nötig).
+- Demo-Zugänge aus `insurance.security.users`: `customer`, `clerk`, `admin`;
+  Passwort standardmäßig gleich dem Benutzernamen, über `DEMO_*_PASSWORD`
+  überschreibbar. Sie werden in Swagger und unter `/api/auth/demo-accounts`
+  veröffentlicht (`DEMO_PUBLISH_CREDENTIALS=false` schaltet das ab).
+- Requests mit `X-Requested-With: XMLHttpRequest` erhalten bei 401 keinen
+  `WWW-Authenticate`-Header, damit der Browser keinen eigenen Login-Dialog öffnet.
+- Das Frontend hält die Anmeldung nur für den Browser-Tab im `sessionStorage`.
+
+Das ist ein bewusstes Demo-Modell. Für echte Benutzer wäre ein
+Identitätsanbieter (OIDC/JWT) nötig; die Rollenprüfungen bleiben dabei gleich.
+
+### 9.2 Autorisierung
+
+- **Rollen** pro Endpunkt mit `@PreAuthorize` (Tabelle in Abschnitt 6.2).
+- **Eigentum:** `CustomerAccessPolicy` erlaubt einem reinen CUSTOMER nur Aktionen
+  für die Kundennummer seines Logins (`customer` = `DEMO-1001`). Fremde Policen
+  ergeben 403. Aufrufe ohne angemeldeten Benutzer (interne Verarbeitung) sind
+  nicht eingeschränkt; schreibende HTTP-Requests erfordern immer eine Anmeldung.
+- `DELETE /api/**` ist gesperrt.
+
+### 9.3 Missbrauchsschutz
+
+`RateLimitFilter` begrenzt je Client-IP und Minute 30 schreibende und 300
+lesende Requests auf `/api/**` (`RATE_LIMIT_*`). Er läuft vor Spring Security,
+zählt also auch fehlgeschlagene Logins. Hinter Caddy wird die Client-IP aus
+`X-Forwarded-For` übernommen.
+
+### 9.4 Weitere Grenzen
+
+- Actuator stellt nur `health` und `info` ohne Details bereit; Caddy routet
+  `/actuator` nicht nach außen.
+- Das Backend-Image läuft als Nicht-Root-Benutzer.
+- Logs enthalten keine Request-Bodies, Passwörter oder E-Mail-Adressen.
 
 ## 10. Build, Konfiguration und Betrieb
 
-### 10.1 Lokaler Entwicklungsstart
-
-Voraussetzungen laut README: Java 21, Node.js 22+; Docker ist optional.
-
-Aus dem Repository-Stamm:
+### 10.1 Lokale Entwicklung
 
 ```powershell
-# Backend auf Port 8080 (Standardprofil dev mit H2)
+# Backend auf Port 8080 (Profil dev mit H2)
 backend\mvnw.cmd -f backend\pom.xml spring-boot:run
 
-# Frontend in einem zweiten Terminal; Vite auf Port 5173
+# Frontend auf Port 5173
 npm run dev
-```
 
-Optional PostgreSQL starten:
-
-```powershell
-docker compose up -d postgres
-```
-
-Das obige Compose-Kommando startet nur den Datenbankdienst, nicht das
-`local`-Profil der Anwendung. Für den vollständigen Compose-Stack:
-
-```powershell
+# Optional: PostgreSQL 15 und App mit Profil local
 docker compose up --build
 ```
 
-Compose setzt `SPRING_PROFILES_ACTIVE=local` für die Anwendung. Damit gelten
-Flyway und PostgreSQL. Migration `V8` schützt die Claim-Daten mit einer
-Prüfung, die fehlende, mehrdeutige oder widersprüchliche Kunden-zu-Police-
-Zuordnungen vor dem Backfill zurückweist. `V9` entfernt anschließend die
-redundante Kundennummer-Spalte; `V10` ergänzt synthetische Demo-Daten. Die
-vollständige Migration sollte vor einer PostgreSQL-Freigabe automatisiert
-getestet werden.
+Das lokale Compose-Volume heißt `insurance-postgres15-data`; die App wartet auf
+eine gesunde Datenbank.
 
-### 10.2 Profile und Ports
+### 10.2 Produktion
 
-| Profil           | Datenquelle              | Schemaverwaltung                | Zusatz                                      |
-| ---------------- | ------------------------ | ------------------------------- | ------------------------------------------- |
-| `dev` (Standard) | H2 `jdbc:h2:mem:claimdb` | Hibernate `update`; Flyway aus  | Seed-Daten aus `db/dev-data.sql`            |
-| `local`          | PostgreSQL `insurance`   | Flyway an; Hibernate `validate` | lokale Compose-/Entwicklerkonfiguration    |
-| `prod`           | PostgreSQL per Env-Variablen | Flyway an; Hibernate `validate` | Produktions-Compose; V10 lädt synthetische Demodaten |
+`docker-compose.prod.yml` startet PostgreSQL 15, Backend und Caddy. Das Backend
+startet nach gesunder Datenbank; Caddy startet erst, wenn der
+`HEALTHCHECK` des Backends (`/actuator/health/readiness`, inkl. Datenbank)
+gesund ist. Erforderliche `.env`-Werte: `DOMAIN`, `POSTGRES_PASSWORD`; optional
+`DEMO_*_PASSWORD`, `DEMO_PUBLISH_CREDENTIALS`, `RATE_LIMIT_*`.
 
-| Dienst        | Port | Hinweis                                      |
-| ------------- | ---: | -------------------------------------------- |
-| Vite-Frontend | 5173 | Development-Server; `/api`-Proxy auf Backend |
-| Spring Boot   | 8080 | REST und OpenAPI                             |
-| PostgreSQL    | 5432 | lokales Compose-Portmapping                  |
+### 10.3 CI/CD
 
-Das Dockerfile baut ein Backend-JAR in einer Maven-/Temurin-21-Stage und führt
-es in einem Temurin-21-JRE-Image aus. Das lokale `docker-compose.yml` startet
-die App nach `service_started`; ein Healthcheck-basiertes Warten auf PostgreSQL
-ist dort nicht konfiguriert.
+| Workflow        | Auslöser       | Schritte                                                                                      |
+| --------------- | -------------- | --------------------------------------------------------------------------------------------- |
+| `CI`            | Pull Request   | Frontend: Lint, Format-Check, Vitest, Build mit `tsc -b`; Backend: `mvn verify` inkl. PostgreSQL-Test; Backend-Image bauen, starten, auf `healthy` und Nicht-Root prüfen |
+| `Build & Deploy`| Push auf `main` | ruft zuerst `CI` auf; nur bei Erfolg Images bauen (amd64/arm64), nach GHCR pushen und per SSH deployen; parallele Deployments sind ausgeschlossen |
 
-Die separate `docker-compose.prod.yml` definiert PostgreSQL 15, Backend und
-Caddy. Der Backend-Start wartet dort auf `service_healthy`; Caddy stellt den
-HTTPS-Einstieg bereit und leitet zum Backend weiter. Der GitHub-Actions-Deploy-
-Workflow baut und veröffentlicht Backend- und Caddy-Images. Das Frontend wird
-in das Caddy-Image eingebaut; Caddy exponiert die Ports 80 und 443. Die
-Produktionskonfiguration erwartet Domain und Datenbankzugangsdaten aus der
-Laufzeitumgebung.
+### 10.4 Logging und Diagnose
 
-### 10.3 Anwendungslogging und Fehlerdiagnose
+- `dev`/`local`: Textlogs auf Konsole und `logs/insurance-platform.log` (Rotation).
+- `prod`: eine JSON-Zeile pro Eintrag (ECS) auf stdout, inkl. `requestId`.
+- API-Aufrufe werden mit Methode, Pfad, Status und Dauer protokolliert.
+- Der Audit-Trail wird mit der Geschäftstransaktion gespeichert; er ist ein
+  technischer Verlauf, kein revisionssicheres Archiv.
 
-Spring Boot schreibt Logs immer auf die Konsole. In den Profilen `dev` und
-`local` wird zusätzlich `backend/logs/insurance-platform.log` mit Rotation
-geschrieben; `LOG_FILE` kann den Dateipfad überschreiben. Das Profil `prod`
-schreibt standardmäßig nur auf stdout/stderr, damit Containerplattformen die
-Ausgabe einsammeln und zentral speichern können.
+### 10.5 Tests
 
-API-Aufrufe protokollieren Methode, Pfad, HTTP-Status und Laufzeit. Jeder Aufruf
-erhält eine `X-Request-Id`; dieselbe ID steht im Log und in der HTTP-Antwort.
-Das Frontend erzeugt diese ID pro API-Anfrage und protokolliert API-Fehler sowie
-unerwartete UI-Fehler strukturiert in der Browserkonsole; React-Renderfehler
-werden von einer Error Boundary abgefangen.
-Fachliche Schreibaktionen, Statuswechsel, Underwriting-Entscheidungen,
-Modulereignisse und behandelte Fehler werden zusätzlich mit den relevanten
-technischen IDs protokolliert. Request-Bodies, Passwörter, E-Mail-Adressen und
-andere personenbezogene Inhalte werden nicht protokolliert.
+| Ebene              | Beispiele                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| Domäne             | `ClaimDomainTest`, `PolicyDomainTest`, `PolicyYearTest`, `EntityInvariantTest`              |
+| Anwendungsfälle    | `ClaimServiceTest`, Listener-Tests                                                           |
+| Web und Sicherheit | `ApiAuthorizationTest`, Controller-Security-Tests, `RateLimitFilterTest`, `ActuatorHealthTest` |
+| Integration        | `InsurancePlatformApplicationTests`, `EventOutboxIntegrationTest`, `AnnualAggregateIntegrationTest` (inkl. Nebenläufigkeit), `PolicyQueryCountTest`, `RateLimitIntegrationTest` |
+| PostgreSQL         | `PostgresPersistenceIntegrationTest` (alle Migrationen, `validate`)                          |
+| Architektur        | `ModularityTest`                                                                            |
+| Frontend           | Vitest: Login-Speicher, Fehlermeldungen, rollenabhängige Claim-Aktionen                      |
 
-Der Audit-Trail ist ein technischer Änderungsverlauf, kein revisionssicheres
-Archiv: Er bietet keine manipulationssichere Speicherung, Signaturen oder
-gesetzliche Aufbewahrungsregeln. Audit-Einträge werden gemeinsam mit der
-Geschäftstransaktion gespeichert; ein Datenbank-Rollback verwirft beide.
+## 11. Frontend
 
-Für lokale Entwicklung kann die Datei aus dem Repository-Stamm mit PowerShell
-fortlaufend beobachtet werden:
+`App.tsx` schaltet über React-State zwischen Claims und Policen um; ein Router
+ist nicht nötig. Struktur:
 
-```powershell
-Get-Content .\backend\logs\insurance-platform.log -Wait -Tail 30
-```
+| Pfad                         | Inhalt                                                        |
+| ---------------------------- | ------------------------------------------------------------- |
+| `src/api/`                   | Axios-Client (`X-Request-Id`, Basic-Auth, `X-Requested-With`), Services, Fehlertexte |
+| `src/features/auth/`         | Login-Dialog, Benutzermenü, Sitzungsspeicher, `useAuth`        |
+| `src/features/claims/`       | Übersicht, Statusbadges, rollenabhängige Aktionen, `useClaims` |
+| `src/features/policies/`     | Policenübersicht                                              |
+| `src/types/`                 | Transporttypen                                                |
 
-Für Container und Kubernetes sollten Logs über stdout/stderr gesammelt werden;
-lokale Logdateien sind kein dauerhafter oder revisionssicherer Audit-Trail.
+Das Frontend blendet Aktionen nach Rolle aus bzw. deaktiviert sie; maßgeblich
+bleibt immer die Prüfung im Backend. Die Policenansicht ist eine Leseansicht.
 
-### 10.4 Qualitätssicherung im Repository
+## 12. Quellcode-Navigation
 
-Vorhandene Root-Skripte:
-
-```powershell
-npm run lint
-npm run build
-npm run test:backend
-```
-
-Der Backend-Testbestand enthält unter anderem Anwendungskontext-, Modulgrenzen-,
-Claim-Domain-/Service- und Controller-Security-Tests. `ModularityTest` ist die
-zentrale Architekturprüfung. `PostgresContainerSupport` ist ein optionales
-Testfixture, aber kein aktiver Test der Migrationen V1–V10. Die Tests ersetzen
-keine End-to-End-Prüfung mit echtem PostgreSQL und Browser-Authentifizierung.
-
-## 11. Quellcode-Navigation
-
-| Pfad                                               | Inhalt                                   |
-| -------------------------------------------------- | ---------------------------------------- |
-| `backend/src/main/java/de/hunar/insurance/`        | Java-Anwendung und Fachmodule            |
-| `backend/src/main/resources/application.yml`       | Standardprofil, H2, Spring-Konfiguration |
-| `backend/src/main/resources/application-local.yml` | lokale PostgreSQL-Konfiguration          |
-| `backend/src/main/resources/db/migration/`         | Flyway-Schemaänderungen                  |
-| `backend/src/main/resources/db/dev-data.sql`       | Daten für H2-Entwicklung                 |
-| `backend/src/test/java/de/hunar/insurance/`        | Backend- und Architekturtests            |
-| `frontend/src/App.tsx`                             | Ansichtsumschaltung im React-Frontend    |
-| `frontend/src/api/`                                | Axios-Aufrufe zur REST-API               |
-| `frontend/src/features/`                           | Claims- und Policenansichten             |
-| `docker-compose.yml`, `Dockerfile`                 | lokale Containerlaufzeit / Backend-Image |
-| `docs/adr/`                                        | Architekturentscheidungen                |
-
-## 12. Offene Punkte und Architekturgrenzen
-
-Diese Punkte sind wichtige Kontextinformationen für Weiterentwicklung und
-Betrieb; sie sind keine Aussage, dass eine bestimmte Zielarchitektur bereits
-entschieden wurde.
-
-1. **PostgreSQL-Migration erweitern:** die V1–V12-Historie und das Hibernate-
-   Mapping werden automatisiert gegen eine frische PostgreSQL-Datenbank geprüft.
-   Ein Testlauf benötigt Docker; zusätzliche Upgrade-Tests mit repräsentativ
-   befüllten Produktionsdaten sind noch offen.
-2. **Frontend-Authentifizierung:** das UI setzt keine Basic-Auth-Credentials,
-   obwohl die API Authentifizierung fordert.
-3. **Autorisierung pro Kunde:** Rollen autorisieren Funktionen, nicht den Zugriff
-   auf die Daten eines bestimmten Kunden.
-4. **Event-Zuverlässigkeit:** eine persistente Outbox bzw. Wiederzustellung bei
-   Ausfall ist nicht als aktiver Mechanismus nachgewiesen.
-5. **Funktionale Abdeckung:** UI und API sind nicht gleich weit ausgebaut;
-   insbesondere gibt es keine Oberfläche für zentrale Schreibabläufe und Billing.
-6. **Compose-Verfügbarkeit:** Das lokale Compose-Setup wartet nur auf
-   `service_started` und bestätigt nicht, dass PostgreSQL Verbindungen annimmt.
-   Das Produktions-Compose-Setup verwendet einen Healthcheck.
-7. **Produktionsidentität:** Spring Security verwendet In-Memory-Benutzer; ein
-   produktiver Identitätsanbieter und kundenspezifische Datenautorisierung sind
-   nicht implementiert.
+| Pfad                                          | Inhalt                                     |
+| --------------------------------------------- | ------------------------------------------ |
+| `backend/src/main/java/de/hunar/insurance/`   | Fachmodule und `shared`                    |
+| `backend/src/main/resources/application.yml`  | Basiskonfiguration und Profil `prod`        |
+| `backend/src/main/resources/application-*.yml`| Profile `dev` und `local`                  |
+| `backend/src/main/resources/db/migration/`    | Flyway-Migrationen                         |
+| `backend/src/main/resources/db/dev-data.sql`  | Demodaten für H2                           |
+| `backend/src/test/`                           | Backend-Tests, `config/application.yml` für Testeinstellungen |
+| `frontend/src/`                               | React-Anwendung                            |
+| `Dockerfile`, `frontend/Dockerfile`, `Caddyfile` | Backend-Image, Caddy-Image mit Frontend |
+| `docker-compose.yml`, `docker-compose.prod.yml`  | lokal bzw. Produktion                    |
+| `.github/workflows/`                          | CI und Deployment                          |
+| `docs/adr/`                                   | Architekturentscheidungen                  |
 
 ## 13. Zugehörige Dokumente
 
 - [Architektur-Kurzüberblick](../architecture.md)
-- [Architekturkontext](context.md)
-- [Fachlicher Überblick](domain-overview.md)
+- [Architekturprinzipien und Klassenplatzierung](architecture-principles.md)
+- [Domänen- und Modulüberblick](domain-overview.md)
+- [Architektur-Roadmap und offene Punkte](architecture-roadmap.md)
 - [API-Dokumentation](../api/README.md)
-- [Architekturentscheidungen (ADRs)](../adr/0001-modularer-monolith.md)
-- [Event-/Outbox-Entscheidung](../adr/0002-spring-modulith-events-outbox.md)
-- [Persistenzzugriff im Fachmodul (ADR 0003)](../adr/0003-persistenzzugriff-im-domain-modul.md)
-- [Claim-Policy-Migrationsentscheidung](../adr/0004-claim-policy-migration.md)
+- ADRs: [0001 Modularer Monolith](../adr/0001-modularer-monolith.md) ·
+  [0002 Events und Outbox](../adr/0002-spring-modulith-events-outbox.md) ·
+  [0003 Persistenz im Fachmodul](../adr/0003-persistenzzugriff-im-domain-modul.md) ·
+  [0004 Claim-Policy-Migration](../adr/0004-claim-policy-migration.md) ·
+  [0005 Deckungsregeln](../adr/0005-deckungsregeln.md)
