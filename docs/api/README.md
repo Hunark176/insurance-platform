@@ -25,11 +25,25 @@ public.
 
 ## Errors
 
-Errors use `ProblemDetail` (`application/problem+json`): 400 validation,
-401 not authenticated, 403 missing role or foreign policy, 404 not found,
-409 concurrent update, 422 business rule, 429 rate limit (`Retry-After`).
+Errors use `ProblemDetail` (`application/problem+json`), including 401 and 403
+from the security layer: 400 validation, 401 not authenticated, 403 missing role
+or foreign policy, 404 not found, 409 concurrent update or idempotent request
+still running, 422 business rule or reused idempotency key, 429 rate limit
+(`Retry-After`).
 Send `X-Requested-With: XMLHttpRequest` from browsers to avoid the native
 Basic-auth dialog on 401.
+
+## Lists and retries
+
+All lists (`/api/claims`, `/api/policies`, `/api/customers`, `/api/payouts`,
+`/api/credit-notes`) are paginated with `page` (zero-based) and `size` (1–100,
+default 20) and return `content` plus `page`, `size`, `totalElements`,
+`totalPages`, `first`, `last`.
+
+`POST` requests may send an `Idempotency-Key` header (8–100 characters). A retry
+with the same key and body returns the stored first response with
+`Idempotency-Replayed: true` instead of creating a second record
+([ADR 0006](../adr/0006-idempotency-key.md)).
 
 ## Claims
 
@@ -66,4 +80,11 @@ POST /api/policies/{id}/cancel?effectiveOn=2026-12-31   (CLERK, ADMIN; default: 
 ```
 
 Losses up to and including the effective date stay covered and can still be
-reported and approved; retroactive cancellations are rejected.
+reported and approved; retroactive cancellations are rejected. Billing credits
+the premium for the remaining days pro rata (`GET /api/credit-notes`).
+
+## Contract for clients
+
+The frontend types are generated from this contract
+(`frontend/openapi.json` → `frontend/src/api/generated/schema.ts`); CI fails if
+they differ from the backend.

@@ -185,6 +185,9 @@ welche austauschbare Grenze tatsächlich gebraucht wird.
   ausschließen, etwa mit `PolicyApi.lockForClaimApproval`, und dafür einen
   Nebenläufigkeitstest haben.
 - Einen externen Message Broker nicht ohne separate Entscheidung ergänzen.
+- Doppelte Anfragen nach Timeouts fängt der `Idempotency-Key` ab
+  ([ADR 0006](../adr/0006-idempotency-key.md)). Neue anlegende Endpunkte sind
+  damit automatisch abgedeckt; das Frontend sendet pro Vorgang einen Schlüssel.
 
 ## 6. Frontend-Zuständigkeiten
 
@@ -206,6 +209,10 @@ Das aktuelle Frontend ist nach Funktionen organisiert:
   des Tabs; `apiClient` hängt den Basic-Header an und meldet bei 401 ab.
 - Tests liegen neben dem getesteten Code (`*.test.ts(x)`) und laufen mit
   Vitest, jsdom und Testing Library.
+- API-Typen werden nicht von Hand gepflegt: `src/types` leitet sie aus
+  `src/api/generated/schema.ts` ab. Nach einer Änderung an Backend-DTOs den
+  Vertrag exportieren (`-Dopenapi.export=true` beim `OpenApiContractExportTest`)
+  und `npm run generate:api-types` ausführen; die CI prüft das.
 
 Neue UI folgt der vorhandenen Aufteilung in Funktion, API und Typen.
 Backend-Regeln bleiben maßgeblich; Frontend-Validierung verbessert die
