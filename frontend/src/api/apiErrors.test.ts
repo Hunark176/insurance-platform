@@ -22,6 +22,7 @@ describe('describeApiError', () => {
       'Für diese Aktion fehlt die Berechtigung (Rolle Sachbearbeiter oder Administrator nötig).',
     ],
     [409, 'Der Datensatz wurde inzwischen geändert. Bitte neu laden.'],
+    [429, 'Zu viele Anfragen in kurzer Zeit. Bitte etwa eine Minute warten.'],
   ])('translates HTTP %i', (status, message) => {
     expect(describeApiError(httpError(status))).toBe(message)
   })
