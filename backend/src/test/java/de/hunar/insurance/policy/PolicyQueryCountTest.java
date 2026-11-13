@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.TestPropertySource;
 
 import java.util.List;
@@ -27,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 class PolicyQueryCountTest {
 
-    /** One query each for policies, customers and products. */
-    private static final long MAX_STATEMENTS = 3;
+    /** Page and count query for the policies, one batch query each for customers and products. */
+    private static final long MAX_STATEMENTS = 4;
 
     @Autowired
     private PolicyService policyService;
@@ -47,7 +48,7 @@ class PolicyQueryCountTest {
 
     @Test
     void listingPoliciesUsesAConstantNumberOfQueries() {
-        List<PolicyResponse> policies = policyService.findAllResponses();
+        List<PolicyResponse> policies = policyService.findPage(PageRequest.of(0, 100)).content();
 
         // The demo data must contain several customers and products, otherwise the test proves nothing.
         assertThat(policies.stream().map(PolicyResponse::customerId).distinct().count()).isGreaterThan(1);
@@ -61,7 +62,8 @@ class PolicyQueryCountTest {
 
     @Test
     void loadingSnapshotsForSeveralPoliciesUsesAConstantNumberOfQueries() {
-        List<Long> ids = policyService.findAllResponses().stream().map(PolicyResponse::id).toList();
+        List<Long> ids = policyService.findPage(PageRequest.of(0, 100)).content().stream()
+                .map(PolicyResponse::id).toList();
         statistics.clear();
 
         List<PolicySnapshot> snapshots = policyApi.getSnapshots(ids);

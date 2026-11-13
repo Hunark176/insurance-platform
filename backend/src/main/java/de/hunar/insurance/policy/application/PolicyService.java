@@ -18,11 +18,14 @@ import de.hunar.insurance.product.ProductApi;
 import de.hunar.insurance.product.ProductSummary;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
+import de.hunar.insurance.shared.web.PageResponse;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import de.hunar.insurance.underwriting.UnderwritingApi;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,25 +108,27 @@ public class PolicyService implements PolicyApi {
     }
 
     /**
-     * Lists policies enriched with their customer and product details.
+     * Lists one page of policies enriched with their customer and product details.
      *
-     * <p>Uses a constant number of queries regardless of the number of policies: one for the
-     * policies and one batch lookup each for customers and products.</p>
+     * <p>Uses a constant number of queries regardless of the page size: page and count query for
+     * the policies and one batch lookup each for customers and products.</p>
      *
-     * @return all persisted policies
+     * @param pageable requested page and sort order
+     * @return the requested page
      * @throws ResourceNotFoundException if a policy refers to a missing customer or product
      */
     @Transactional(readOnly = true)
-    public List<PolicyResponse> findAllResponses() {
-        List<Policy> policies = repository.findAll();
+    public PageResponse<PolicyResponse> findPage(Pageable pageable) {
+        Page<Policy> page = repository.findAll(pageable);
+        List<Policy> policies = page.getContent();
         Map<Long, CustomerSummary> customers = loadCustomers(policies);
         Map<Long, ProductSummary> products = byId(
                 productApi.findByIds(policies.stream().map(Policy::getProductId).toList()), ProductSummary::id);
-        return policies.stream()
+        return PageResponse.of(page, policies.stream()
                 .map(policy -> mapper.toResponse(policy,
                         require(customers, policy.getCustomerId(), "Customer"),
                         require(products, policy.getProductId(), "Product")))
-                .toList();
+                .toList());
     }
 
     /**

@@ -3,18 +3,22 @@ package de.hunar.insurance.policy.controller;
 import de.hunar.insurance.policy.application.PolicyService;
 import de.hunar.insurance.policy.dto.IssuePolicyRequest;
 import de.hunar.insurance.policy.dto.PolicyResponse;
+import de.hunar.insurance.shared.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.List;
 
 /**
  * Exposes public policy read, issuance, and cancellation operations.
@@ -26,12 +30,19 @@ public class PolicyController {
     private final PolicyService service;
 
     /**
-     * Lists policy responses for authenticated callers.
+     * Lists policies page by page, ordered by identifier.
      *
-     * @return all policies
+     * @param page zero-based page index
+     * @param size page size from 1 to 100
+     * @return the requested page of policies
      */
     @GetMapping
-    public List<PolicyResponse> findAll() { return service.findAllResponses(); }
+    public PageResponse<PolicyResponse> findAll(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        return service.findPage(PageRequest.of(page, size, Sort.by("id")));
+    }
 
     /**
      * Issues a policy after validating the request and underwriting result.
