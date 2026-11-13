@@ -1,7 +1,9 @@
 package de.hunar.insurance.billing.application;
 
 import de.hunar.insurance.audit.AuditTrailApi;
+import de.hunar.insurance.billing.domain.CreditNoteRepository;
 import de.hunar.insurance.billing.domain.PayoutRepository;
+import de.hunar.insurance.billing.dto.CreditNoteResponse;
 import de.hunar.insurance.billing.dto.PayoutResponse;
 import de.hunar.insurance.billing.mapper.PayoutMapper;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
@@ -20,6 +22,7 @@ import java.util.List;
 @Slf4j
 public class BillingService {
     private final PayoutRepository payoutRepository;
+    private final CreditNoteRepository creditNoteRepository;
     private final PayoutMapper mapper;
     private final AuditTrailApi auditTrail;
 
@@ -31,6 +34,20 @@ public class BillingService {
     @Transactional(readOnly = true)
     public List<PayoutResponse> findAll() {
         return payoutRepository.findAll().stream().map(mapper::toResponse).toList();
+    }
+
+    /**
+     * Lists credit notes created after policy cancellations.
+     *
+     * @return all credit notes
+     */
+    @Transactional(readOnly = true)
+    public List<CreditNoteResponse> findCreditNotes() {
+        return creditNoteRepository.findAll().stream()
+                .map(note -> new CreditNoteResponse(note.getId(), note.getPolicyId(), note.getCustomerId(),
+                        note.getAmount(), note.getCurrency(), note.getCreditedDays(), note.getTermDays(),
+                        note.getCreatedAt()))
+                .toList();
     }
 
     /**
