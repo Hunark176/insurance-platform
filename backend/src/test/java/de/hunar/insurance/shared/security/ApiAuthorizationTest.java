@@ -132,6 +132,22 @@ class ApiAuthorizationTest {
     }
 
     @Test
+    void meNamesTheCustomerOfACustomerLogin() throws Exception {
+        mockMvc.perform(get("/api/auth/me").with(httpBasic("customer", "customer")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.customerNumber").value("DEMO-1001"));
+        mockMvc.perform(get("/api/auth/me").with(httpBasic("clerk", "clerk")))
+                .andExpect(jsonPath("$.customerNumber").doesNotExist());
+    }
+
+    @Test
+    void listsRejectInvalidPagination() throws Exception {
+        mockMvc.perform(get("/api/payouts").param("size", "101")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/payouts").param("page", "-1")).andExpect(status().isBadRequest());
+        verifyNoInteractions(billingService);
+    }
+
+    @Test
     void meRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());

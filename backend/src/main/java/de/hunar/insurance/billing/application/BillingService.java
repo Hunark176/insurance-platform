@@ -1,5 +1,10 @@
 package de.hunar.insurance.billing.application;
 
+import de.hunar.insurance.billing.domain.CreditNote;
+import de.hunar.insurance.billing.domain.Payout;
+import de.hunar.insurance.shared.web.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.billing.domain.CreditNoteRepository;
 import de.hunar.insurance.billing.domain.PayoutRepository;
@@ -27,27 +32,31 @@ public class BillingService {
     private final AuditTrailApi auditTrail;
 
     /**
-     * Lists payouts for staff billing workflows.
+     * Lists one page of payouts.
      *
-     * @return all payout responses
+     * @param pageable requested page and sort order
+     * @return the requested page
      */
     @Transactional(readOnly = true)
-    public List<PayoutResponse> findAll() {
-        return payoutRepository.findAll().stream().map(mapper::toResponse).toList();
+    public PageResponse<PayoutResponse> findPayouts(Pageable pageable) {
+        Page<Payout> page = payoutRepository.findAll(pageable);
+        return PageResponse.of(page, page.getContent().stream().map(mapper::toResponse).toList());
     }
 
     /**
-     * Lists credit notes created after policy cancellations.
+     * Lists one page of credit notes created after policy cancellations.
      *
-     * @return all credit notes
+     * @param pageable requested page and sort order
+     * @return the requested page
      */
     @Transactional(readOnly = true)
-    public List<CreditNoteResponse> findCreditNotes() {
-        return creditNoteRepository.findAll().stream()
+    public PageResponse<CreditNoteResponse> findCreditNotes(Pageable pageable) {
+        Page<CreditNote> page = creditNoteRepository.findAll(pageable);
+        return PageResponse.of(page, page.getContent().stream()
                 .map(note -> new CreditNoteResponse(note.getId(), note.getPolicyId(), note.getCustomerId(),
                         note.getAmount(), note.getCurrency(), note.getCreditedDays(), note.getTermDays(),
                         note.getCreatedAt()))
-                .toList();
+                .toList());
     }
 
     /**

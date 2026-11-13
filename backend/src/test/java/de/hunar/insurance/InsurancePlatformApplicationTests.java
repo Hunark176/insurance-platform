@@ -106,7 +106,7 @@ class InsurancePlatformApplicationTests {
                         "join customers c on c.id = p.customer_id where c.customer_number = 'DEMO-1001'",
                 Integer.class))
                 .isEqualTo(3);
-        assertThat(policyService.findAllResponses())
+        assertThat(policyService.findPage(PageRequest.of(0, 100)).content())
                 .hasSize(65)
                 .anySatisfy(policy -> {
                     assertThat(policy.customerName()).isEqualTo("Anna Schneider");

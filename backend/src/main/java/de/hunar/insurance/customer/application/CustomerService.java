@@ -1,5 +1,8 @@
 package de.hunar.insurance.customer.application;
 
+import de.hunar.insurance.shared.web.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import de.hunar.insurance.audit.AuditTrailApi;
 import de.hunar.insurance.customer.CustomerApi;
 import de.hunar.insurance.customer.CustomerSummary;
@@ -46,13 +49,15 @@ public class CustomerService implements CustomerApi {
     }
 
     /**
-     * Lists all customers for authorized staff workflows.
+     * Lists one page of customers for authorized staff workflows.
      *
-     * @return all customer responses
+     * @param pageable requested page and sort order
+     * @return the requested page
      */
     @Transactional(readOnly = true)
-    public List<CustomerResponse> findAll() {
-        return repository.findAll().stream().map(mapper::toResponse).toList();
+    public PageResponse<CustomerResponse> findPage(Pageable pageable) {
+        Page<Customer> page = repository.findAll(pageable);
+        return PageResponse.of(page, page.getContent().stream().map(mapper::toResponse).toList());
     }
 
     /**

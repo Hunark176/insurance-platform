@@ -2,6 +2,8 @@ package de.hunar.insurance.policy.controller;
 
 import de.hunar.insurance.policy.application.PolicyService;
 import de.hunar.insurance.policy.dto.PolicyResponse;
+import de.hunar.insurance.shared.web.PageResponse;
+import org.springframework.data.domain.Pageable;
 import de.hunar.insurance.shared.security.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -29,26 +32,28 @@ class PolicyControllerSecurityTest {
 
     @Test
     void anonymousRequestsMayReadPolicies() throws Exception {
-        when(policyService.findAllResponses()).thenReturn(List.of());
+        when(policyService.findPage(any(Pageable.class)))
+                .thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0, true, true));
 
         mockMvc.perform(get("/api/policies"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test
     @WithMockUser(username = "clerk", roles = "CLERK")
     void authenticatedUserMayReadAllPolicies() throws Exception {
-        when(policyService.findAllResponses()).thenReturn(List.of(
+        when(policyService.findPage(any(Pageable.class))).thenReturn(new PageResponse<>(List.of(
                 new PolicyResponse(1L, 2L, "C-2", "Test Customer", 3L, "Test Product",
-                        null, null, null, null, null, null, null)));
+                        null, null, null, null, null, null, null)), 0, 20, 1, 1, true, true));
 
-        mockMvc.perform(get("/api/policies"))
+        mockMvc.perform(get("/api/policies").param("page", "0").param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].customerId").value(2))
-                .andExpect(jsonPath("$[0].customerName").value("Test Customer"))
-                .andExpect(jsonPath("$[0].productId").value(3))
-                .andExpect(jsonPath("$[0].productName").value("Test Product"));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].customerId").value(2))
+                .andExpect(jsonPath("$.content[0].customerName").value("Test Customer"))
+                .andExpect(jsonPath("$.content[0].productId").value(3))
+                .andExpect(jsonPath("$.content[0].productName").value("Test Product"));
     }
 }
