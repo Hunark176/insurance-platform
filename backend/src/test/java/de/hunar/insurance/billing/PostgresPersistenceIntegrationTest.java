@@ -63,11 +63,15 @@ class PostgresPersistenceIntegrationTest {
         Integer appliedMigrations = jdbcTemplate.queryForObject(
                 "select count(*) from flyway_schema_history where success = true",
                 Integer.class);
-        assertThat(appliedMigrations).isEqualTo(13);
+        assertThat(appliedMigrations).isEqualTo(14);
         assertThat(jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.tables where table_name in "
                         + "('event_publication', 'event_publication_archive')",
                 Integer.class)).isEqualTo(2);
+        assertThat(jdbcTemplate.queryForList(
+                "select data_type from information_schema.columns where table_name = 'claims' "
+                        + "and column_name in ('created_at', 'updated_at')",
+                String.class)).containsOnly("timestamp with time zone");
 
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.executeWithoutResult(status -> invoiceRepository.saveAndFlush(
