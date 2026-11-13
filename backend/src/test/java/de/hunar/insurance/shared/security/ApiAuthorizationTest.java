@@ -20,9 +20,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -44,9 +46,23 @@ class ApiAuthorizationTest {
     void anonymousStatusChangeIsRejectedWithUnauthorized() throws Exception {
         mockMvc.perform(patch("/api/claims/1/status").param("newStatus", "APPROVED"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(header().exists("WWW-Authenticate"));
+                .andExpect(header().string("WWW-Authenticate", "Basic realm=\"Insurance Platform\""))
+                // Same ProblemDetail format as every other API error.
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Authentication is required"))
+                .andExpect(jsonPath("$.instance").value("/api/claims/1/status"));
 
         verifyNoInteractions(claimService);
+    }
+
+    @Test
+    void deniedDeleteIsReportedAsProblemDetail() throws Exception {
+        mockMvc.perform(delete("/api/claims/1").with(httpBasic("admin", "admin")))
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Access is denied"));
     }
 
     @Test
