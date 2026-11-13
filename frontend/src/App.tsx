@@ -44,7 +44,11 @@ function App() {
           <UserMenu onLoginClick={openLogin} />
         </div>
       </nav>
-      {activeView === 'claims' ? <ClaimForm onLoginRequired={openLogin} /> : <PolicyManagement />}
+      {activeView === 'claims' ? (
+        <ClaimForm onLoginRequired={openLogin} />
+      ) : (
+        <PolicyManagement onLoginRequired={openLogin} />
+      )}
       <LoginDialog open={loginOpen} onClose={closeLogin} />
     </main>
   )

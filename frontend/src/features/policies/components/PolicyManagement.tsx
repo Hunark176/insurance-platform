@@ -3,7 +3,11 @@ import { PolicyStats } from './PolicyStats'
 import { PolicyTable } from './PolicyTable'
 import { usePolicies } from '@/features/policies/hooks/usePolicies'
 
-export function PolicyManagement() {
+interface PolicyManagementProps {
+  onLoginRequired: () => void
+}
+
+export function PolicyManagement({ onLoginRequired }: PolicyManagementProps) {
   const {
     policies,
     filteredPolicies,
@@ -13,8 +17,14 @@ export function PolicyManagement() {
     setSearch,
     sortField,
     sortDirection,
+    page,
+    totalPages,
+    totalPolicies,
+    cancellingId,
     handleLoadPolicies,
     handleSort,
+    handlePageChange,
+    handleCancel,
   } = usePolicies()
 
   return (
@@ -39,19 +49,19 @@ export function PolicyManagement() {
 
         {message && (
           <div
-            role="status"
+            role={message.tone === 'error' ? 'alert' : 'status'}
             className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-              message.includes('erfolgreich')
+              message.tone === 'success'
                 ? 'border-green-200 bg-green-50 text-green-700'
                 : 'border-red-200 bg-red-50 text-red-700'
             }`}
           >
-            {message}
+            {message.text}
           </div>
         )}
 
         <PolicyStats
-          totalPolicies={policies.length}
+          totalPolicies={totalPolicies}
           activePolicies={policies.filter((policy) => policy.status === 'ACTIVE').length}
           filteredCount={filteredPolicies.length}
         />
@@ -65,6 +75,13 @@ export function PolicyManagement() {
           sortDirection={sortDirection}
           onSort={handleSort}
           onLoadPolicies={handleLoadPolicies}
+          page={page}
+          totalPages={totalPages}
+          totalPolicies={totalPolicies}
+          onPageChange={handlePageChange}
+          cancellingId={cancellingId}
+          onCancel={handleCancel}
+          onLoginRequired={onLoginRequired}
         />
       </div>
     </div>

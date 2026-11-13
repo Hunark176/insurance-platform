@@ -11,6 +11,17 @@ export interface Claim {
   occurredOn: string
 }
 
+export type ClaimType = 'AUTO' | 'HOME' | 'LIFE' | 'LIABILITY'
+
+export interface CreateClaimRequest {
+  policyId: number
+  occurredOn: string
+  customerNumber: string
+  claimType: ClaimType
+  description: string
+  amount: number
+}
+
 export interface ClaimPage {
   content: Claim[]
   page: number
