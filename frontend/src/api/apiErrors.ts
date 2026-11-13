@@ -17,6 +17,8 @@ export function describeApiError(error: unknown): string {
       return 'Für diese Aktion fehlt die Berechtigung (Rolle Sachbearbeiter oder Administrator nötig).'
     case 409:
       return 'Der Datensatz wurde inzwischen geändert. Bitte neu laden.'
+    case 429:
+      return 'Zu viele Anfragen in kurzer Zeit. Bitte etwa eine Minute warten.'
     default:
       return typeof detail === 'string' && detail.length > 0
         ? detail

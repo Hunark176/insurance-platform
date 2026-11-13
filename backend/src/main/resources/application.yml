@@ -37,9 +37,13 @@ management:
         # once the application has started (Flyway ran) and PostgreSQL answers.
         readiness:
           include: readinessState,db
-# Public demo logins. Each password defaults to the username in every profile; set
-# DEMO_*_PASSWORD environment variables to override them.
 insurance:
+  # Requests per client IP and minute on /api/** (see RateLimitFilter). The demo logins
+  # are public, so this protects against mass writes and password guessing.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    writes-per-minute: ${RATE_LIMIT_WRITES_PER_MINUTE:30}
+    reads-per-minute: ${RATE_LIMIT_READS_PER_MINUTE:300}
   # Runtime care for the event outbox (see EventPublicationMaintenance).
   events:
     maintenance:
@@ -47,6 +51,8 @@ insurance:
       retry-interval: PT1M
       retry-older-than: PT5M
       completed-retention: P7D
+  # Public demo logins. Each password defaults to the username in every profile; set
+  # DEMO_*_PASSWORD environment variables to override them.
   security:
     publish-credentials: ${DEMO_PUBLISH_CREDENTIALS:true}
     users:

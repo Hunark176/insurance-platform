@@ -40,12 +40,12 @@
   <text x="1082" y="235" text-anchor="middle" class="head">Relationale</text>
   <text x="1082" y="260" text-anchor="middle" class="head">Datenbank</text>
   <text x="1082" y="299" text-anchor="middle" class="body">H2 (dev)</text>
-  <text x="1082" y="327" text-anchor="middle" class="body">PostgreSQL</text>
+  <text x="1082" y="327" text-anchor="middle" class="body">PostgreSQL 15</text>
   <path d="M239 280 L315 280" class="line"/>
   <text x="277" y="266" text-anchor="middle" class="small">HTTP</text>
   <path d="M550 280 L650 280" class="line"/>
   <text x="600" y="266" text-anchor="middle" class="small">REST /api</text>
   <path d="M950 280 L1010 280" class="line"/>
   <text x="979" y="265" text-anchor="middle" class="small">JPA / JDBC</text>
-  <text x="45" y="520" class="small">Kein separater Fachservice und kein Message Broker im aktuellen Compose-Setup.</text>
+  <text x="45" y="520" class="small">Produktion: Caddy (HTTPS) liefert das Frontend aus und leitet /api an das Backend. Kein Message Broker; Events laufen über die Outbox-Tabelle.</text>
 </svg>

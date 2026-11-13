@@ -14,166 +14,192 @@
 </table>
 
 Portfolio-Projekt für die digitale Abbildung ausgewählter Versicherungsprozesse.
-Das Monorepo verbindet ein Spring-Boot-Backend mit einem React-Frontend und
-entwickelt den fachlichen Umfang sowie die Architektur schrittweise weiter.
+Das Monorepo verbindet ein Spring-Boot-Backend (modularer Monolith) mit einem
+React-Frontend.
+
+**Live-Demo:** <https://insurance.hunarkarim.de> ·
+[Swagger UI](https://insurance.hunarkarim.de/swagger-ui.html) ·
+Demo-Zugänge: `customer`/`customer`, `clerk`/`clerk`, `admin`/`admin`
 
 ## Funktionen
 
-Die REST-API bildet derzeit folgende Abläufe ab:
-
 - Kunden und Versicherungsprodukte anlegen und abrufen
-- Policen ausstellen, anzeigen und kündigen
-- Schadenfälle melden, paginiert und nach Police gefiltert abrufen sowie ihren
-  Bearbeitungsstatus verwalten
-- Auszahlungen zu genehmigten Schäden erzeugen und durch Admins als bezahlt
-  markieren
-- Policen auf ihre Eignung für einen Antrag prüfen
+- Policen ausstellen, anzeigen und mit Wirksamkeitsdatum stornieren
+- Schäden melden, paginiert abrufen und durch die Statusmaschine führen
+  (eingegangen → in Prüfung → genehmigt/abgelehnt)
+- Genehmigung mit Deckungsprüfung nach dem **Schadenereignisprinzip**,
+  Deckungssumme je Schaden und **Jahreshöchstleistung** je Versicherungsjahr
+- Rechnungen und Auszahlungen automatisch über Domänenereignisse mit
+  **persistenter Outbox**; Admins führen Auszahlungen aus
+- Rollen (Kunde, Sachbearbeitung, Admin), **Eigentumsprüfung** für Kunden,
+  Rate-Limit und Audit-Trail
 
-Die Weboberfläche enthält aktuell Ansichten für Schadenfälle und Policen. Die
-übrigen Funktionen sind über die REST-API verfügbar. Der Umfang ist ein
-Portfolio- und Lernprojekt, keine produktionsfertige Versicherungsplattform.
+Die Weboberfläche zeigt Schadenfälle und Policen, bietet Login mit
+Demo-Zugängen und Statuswechsel für Schadenfälle. Alle weiteren Funktionen sind
+über die REST-API und Swagger verfügbar. Das Projekt ist eine Portfolio-Demo,
+keine produktionsfertige Versicherungsplattform.
 
 ## Tech-Stack
 
-| Bereich             | Technologien                                                          |
-| ------------------- | --------------------------------------------------------------------- |
-| Backend             | Java 21, Spring Boot 3, Spring Data JPA, Hibernate, Spring Modulith   |
-| API und Validierung | REST, OpenAPI/Swagger, Jakarta Bean Validation                        |
-| Datenbanken         | H2 für Entwicklung und Tests; PostgreSQL mit Flyway im Profil `local` |
-| Frontend            | React 19, TypeScript, Vite, Tailwind CSS                              |
-| Qualitätssicherung  | Maven, JUnit, Mockito, ESLint, GitHub Actions                         |
-| Container           | Docker und Docker Compose                                             |
+| Bereich             | Technologien                                                                  |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Backend             | Java 21, Spring Boot 3.5, Spring Data JPA, Hibernate, Spring Modulith 1.4     |
+| API und Sicherheit  | REST, OpenAPI/Swagger, Bean Validation, Spring Security (HTTP Basic, Rollen)  |
+| Datenbanken         | PostgreSQL 15 mit Flyway; H2 für schnelle lokale Entwicklung                  |
+| Frontend            | React 19, TypeScript, Vite, Tailwind CSS                                      |
+| Qualitätssicherung  | JUnit, Mockito, Testcontainers, Awaitility, Vitest, Testing Library, ESLint, Prettier |
+| Betrieb             | Docker, Docker Compose, Caddy, Actuator, GitHub Actions                       |
 
 ## Architektur
 
-Das Backend ist als modularer Monolith organisiert: Fachbereiche wie Kunden,
-Produkte, Policen, Schäden und Billing sind Spring-Module mit klaren Grenzen.
-Genehmigte Schadenfälle lösen ein Event aus, aus dem Billing idempotent eine
-Auszahlung erstellt.
+Das Backend ist ein modularer Monolith: Kunden, Produkte, Underwriting,
+Policen, Schäden, Billing und Audit sind Spring-Module mit geprüften Grenzen.
+Module rufen einander nur über veröffentlichte APIs auf; Billing reagiert auf
+Ereignisse, die mit der fachlichen Änderung in einer Outbox gespeichert werden.
 
-Weitere Informationen:
-
-- [Architekturüberblick](docs/architecture.md)
-- [Technische Architektur- und API-Dokumentation](docs/architecture/technical-documentation.md)
-- [Architektur-Roadmap](docs/architecture/architecture-roadmap.md)
-- [API-Dokumentation und Swagger](docs/api/README.md)
+- [Architektur-Kurzüberblick](docs/architecture.md)
+- [Technische Dokumentation](docs/architecture/technical-documentation.md)
+- [Architekturprinzipien](docs/architecture/architecture-principles.md)
+- [Roadmap und offene Punkte](docs/architecture/architecture-roadmap.md)
+- [API-Dokumentation](docs/api/README.md)
+- [Architekturentscheidungen (ADRs)](docs/README.md#architekturentscheidungen-adrs)
 
 ## Voraussetzungen
 
 - Java 21
-- Node.js 22 oder neuer
-- npm
-- Docker Desktop (optional, für PostgreSQL über Compose)
+- Node.js 22 oder neuer und npm
+- Docker Desktop (optional, für PostgreSQL und den PostgreSQL-Integrationstest)
 
 ## Lokal starten
 
-Frontend-Abhängigkeiten einmalig aus dem Repository-Stamm installieren:
+Frontend-Abhängigkeiten einmalig installieren:
 
 ```powershell
 npm ci --prefix frontend
 ```
 
-Backend mit dem Standardprofil `dev` und eingebettetem H2 starten. Dieses Profil
-legt bei jedem Start die Demo-Daten neu an; die H2-Datenbank ist flüchtig:
+Backend mit dem Standardprofil `dev` (eingebettetes H2) starten:
 
 ```powershell
 .\backend\mvnw.cmd -f backend\pom.xml spring-boot:run
 ```
 
-Unter macOS/Linux den Maven Wrapper so starten:
-
-```bash
-bash backend/mvnw -f backend/pom.xml spring-boot:run
-```
+Unter macOS/Linux: `bash backend/mvnw -f backend/pom.xml spring-boot:run`.
 
 In einem zweiten Terminal das Frontend starten:
 
-```sh
+```powershell
 npm run dev
 ```
 
-Das Frontend ist unter <http://localhost:5173> erreichbar. Vite leitet
-`/api`-Anfragen an das Backend unter <http://localhost:8080> weiter.
+Das Frontend läuft unter <http://localhost:5173>, Swagger unter
+<http://localhost:8080/swagger-ui.html>. Vite leitet `/api` an das Backend
+weiter.
 
-Das Standardprofil `dev` lädt 50 synthetische Kunden mit Policen aus vier
-Versicherungssparten sowie Beispiel-Schadenfällen und Abrechnungen. Namen und
-Versicherungsdaten sind erfunden; alle E-Mail-Adressen verwenden die reservierte
-`.test`-Domain. Die lokale H2-Datenbank ist flüchtig. Wenn das Backend mit dem
-`dev`-Profil läuft, ist sie über TCP-Port `9123` für IntelliJ Database Tools
-erreichbar (JDBC-URL: `jdbc:h2:tcp://localhost:9123/mem:insurance`).
+Das Profil `dev` legt bei jedem Start 50 synthetische Kunden mit Policen,
+Schadenfällen und Abrechnungen neu an; die H2-Datenbank ist flüchtig. Namen
+sind erfunden, E-Mail-Adressen verwenden die reservierte Domain `.test`. Bei
+laufendem Backend ist H2 über TCP-Port `9123` erreichbar
+(`jdbc:h2:tcp://localhost:9123/mem:insurance`), z. B. für IntelliJ Database
+Tools.
 
-Im Live-System fügt die Flyway-Migration
-`V10__seed_demo_customers_and_business_data.sql` dieselben synthetischen
-Demo-Kunden samt Policen, Schadenfällen und Abrechnungen hinzu. Die Migration
-ergänzt nur fehlende Demo-Datensätze und ändert oder löscht keine vorhandenen
-Datensätze.
-
-Für eine persistente lokale PostgreSQL-Umgebung kann stattdessen der Backend-
-und Datenbank-Container gestartet werden:
+### Mit PostgreSQL
 
 ```powershell
 docker compose up --build
 ```
 
-Compose startet PostgreSQL und das Backend mit dem Profil `local`; das
-Frontend kann weiterhin separat mit `npm run dev` gestartet werden. Die
-PostgreSQL-Datenbank wird über ein Docker-Volume gespeichert. Demo-Daten nach
-einem leeren Datenbankstart einmalig laden:
+Compose startet PostgreSQL 15 und das Backend mit dem Profil `local`; Flyway
+legt das Schema an und lädt die Demodaten (Migration `V10`). Das Frontend
+startet weiterhin separat mit `npm run dev`. Die Daten liegen im Volume
+`insurance-postgres15-data`. Herunterfahren mit `docker compose down`.
+
+## Zugriff und Rollen
+
+Lesende Aufrufe sind öffentlich, schreibende erfordern einen Demo-Zugang. Im
+Frontend meldet man sich oben rechts über **Anmelden** mit einem Klick an, in
+Swagger über **Authorize**. Standardmäßig ist das Passwort gleich dem
+Benutzernamen.
+
+| Aktion                                                   | Berechtigung                 |
+| -------------------------------------------------------- | ---------------------------- |
+| Policen, Claims, Produkte, Auszahlungen lesen            | öffentlich                   |
+| Schaden melden (`POST /api/claims`)                      | `CUSTOMER`, `CLERK`, `ADMIN` |
+| Claim-Status ändern, Police ausstellen/stornieren        | `CLERK`, `ADMIN`             |
+| Kunden auflisten/anlegen, Underwriting-Prüfung           | `CLERK`, `ADMIN`             |
+| Produkt anlegen, Auszahlung ausführen, Audit-Trail lesen | `ADMIN`                      |
+| `DELETE /api/**`                                         | gesperrt                     |
+
+Der Login `customer` steht für den Demo-Kunden `DEMO-1001` und darf Schäden nur
+für dessen Policen melden; fremde Policen ergeben `403`. Ohne Anmeldung antwortet
+die API mit `401`, mit unzureichender Rolle mit `403`. Je Client-IP sind pro
+Minute 30 schreibende und 300 lesende Anfragen erlaubt, darüber `429`.
+
+Da die Zugänge öffentlich sind, darf die Umgebung nur synthetische Daten
+enthalten.
+
+## Qualitätssicherung
 
 ```powershell
-Get-Content -Raw backend\src\main\resources\db\dev-data.sql |
-  docker compose exec -T postgres psql -U insurance -d insurance
+npm run lint
+npm run format:check
+npm run test:frontend   # Vitest + Testing Library
+npm run build           # inklusive Typprüfung (tsc -b)
+npm run test:backend
 ```
 
-Zum Herunterfahren:
+`npm run test:backend` ist für PowerShell/Windows eingerichtet; unter
+macOS/Linux `bash backend/mvnw -f backend/pom.xml test`. Der
+PostgreSQL-Integrationstest benötigt Docker und wird lokal ohne Docker
+übersprungen, in der CI nie.
 
-```powershell
-docker compose down
-```
+Die CI prüft bei jedem Pull Request Frontend (Lint, Format, Tests, Build mit
+Typprüfung), Backend (`mvn verify` inklusive PostgreSQL) und baut und startet
+das Backend-Image. Ein Push auf `main` deployt nur nach grüner CI.
 
 ## Deployment
 
-Pushes to `main` build and publish the backend and Caddy images to GitHub
-Container Registry. The Caddy image contains the built frontend, serves the
-single-page application, and proxies `/api` requests to the backend. Only Caddy
-publishes ports to the host; the database is on an internal network. Both images
-are deployed over SSH. Prepare the server with Docker Compose and a clone of
-this repository at `~/insurance-platform`. The clone must be on `main`, have
-credentials that allow `git fetch`. Each deployment uses a temporary detached
-worktree at the deployed commit, so unrelated local changes in the server clone
-do not block deployment. Compose uses the fixed project name
-`insurance-platform` to keep the existing PostgreSQL volume.
+Ein Push auf `main` startet **Build & Deploy**: Zuerst läuft die CI, danach
+werden Backend- und Caddy-Image (amd64/arm64) gebaut, in die GitHub Container
+Registry geschoben und per SSH auf dem Server gestartet. Das Caddy-Image enthält
+das gebaute Frontend, liefert es aus und leitet `/api`, Swagger und OpenAPI an
+das Backend weiter. Nur Caddy veröffentlicht Ports; Datenbank und Backend
+liegen in internen Netzwerken. Caddy startet erst, wenn das Backend über seinen
+Healthcheck bereit meldet. Zwei Deployments laufen nie gleichzeitig.
 
-Point your domain's DNS A/AAAA records at the server and allow inbound TCP
-ports `80` and `443` (plus UDP `443` for HTTP/3). Create
-`~/insurance-platform/.env` on the server with the domain and a strong database
-password before the first deployment:
+**Server vorbereiten:** Docker Compose installieren und dieses Repository nach
+`~/insurance-platform` klonen (Branch `main`, `git fetch` muss möglich sein).
+Jedes Deployment nutzt einen temporären Worktree des deployten Commits, lokale
+Änderungen im Server-Klon stören also nicht. Compose verwendet den festen
+Projektnamen `insurance-platform`, damit das PostgreSQL-Volume erhalten bleibt.
+
+DNS-A/AAAA-Einträge der Domain auf den Server zeigen lassen und TCP `80`/`443`
+sowie UDP `443` (HTTP/3) freigeben. Vor dem ersten Deployment
+`~/insurance-platform/.env` anlegen:
 
 ```dotenv
 DOMAIN=app.example.com
 POSTGRES_PASSWORD=replace-with-a-long-random-password
-# Optional: demo logins default to customer/customer, clerk/clerk, admin/admin
+# Optional: Demo-Passwörter (Standard: Passwort = Benutzername)
 # DEMO_ADMIN_PASSWORD=admin
-# Optional: set to false to hide the demo credentials from Swagger and the frontend
-# DEMO_PUBLISH_CREDENTIALS=true
+# Optional: Demo-Zugänge in Swagger und Frontend ausblenden
+# DEMO_PUBLISH_CREDENTIALS=false
+# Optional: Rate-Limit je Client-IP und Minute
+# RATE_LIMIT_WRITES_PER_MINUTE=30
+# RATE_LIMIT_READS_PER_MINUTE=300
 ```
 
-Compose defaults to the `ghcr.io/hunark176/insurance-platform` image prefix and
-the `latest` image tag. Set `IMAGE_PREFIX` or `IMAGE_TAG` in this `.env` only
-when deploying images from another registry/repository or pinning a specific
-tag; the GitHub Actions deployment supplies both values automatically.
+`IMAGE_PREFIX` und `IMAGE_TAG` setzt der Workflow selbst; in der `.env` nur
+angeben, um Images aus einer anderen Registry oder einen festen Tag zu
+verwenden.
 
-Add these repository Actions secrets under **Settings → Secrets and variables
-→ Actions**: `SSH_HOST`, `SSH_USER`, and `SSH_KEY`. `SSH_PORT` is optional and
-defaults to `22`. The workflow uses `GITHUB_TOKEN` to log in to GHCR on the
-server, so the repository token must be allowed to read the published package.
-Caddy obtains and renews HTTPS certificates automatically and proxies API
-requests to the backend and other requests to the frontend.
+**GitHub-Secrets** unter *Settings → Secrets and variables → Actions*:
+`SSH_HOST`, `SSH_USER`, `SSH_KEY`, optional `SSH_PORT` (Standard `22`). Für den
+Zugriff auf GHCR nutzt der Workflow `GITHUB_TOKEN`; das Paket muss für das
+Repository lesbar sein. Caddy holt und erneuert HTTPS-Zertifikate automatisch.
 
-Nach dem ersten Deployment oder wenn nur die Datensätze gelöscht wurden, kann
-die gleiche idempotente Demo-Datei auf dem Server eingespielt werden. Das
-Beispiel verwendet die Standardnamen `insurance`; bei abweichenden
-`POSTGRES_USER`- oder `POSTGRES_DB`-Werten diese entsprechend ersetzen:
+**Demodaten wiederherstellen:** Die Datei `dev-data.sql` ergänzt nur fehlende
+Demodatensätze und ändert oder löscht keine vorhandenen:
 
 ```bash
 cd ~/insurance-platform
@@ -182,88 +208,30 @@ docker compose -f docker-compose.prod.yml exec -T db \
   < backend/src/main/resources/db/dev-data.sql
 ```
 
-Die Datei stellt ausschließlich Demo-Kunde, Demo-Produkt, eine Police und drei
-Schäden wieder her. Gelöschte echte Daten können nur aus einem Datenbank-Backup
-wiederhergestellt werden. Das PostgreSQL-Volume nicht mit `docker compose down
--v` löschen.
+Das PostgreSQL-Volume nicht mit `docker compose down -v` löschen; gelöschte
+Daten lassen sich nur aus einem Backup wiederherstellen.
 
-Die Portfolio-API ist öffentlich aufrufbar, damit Interessierte die Funktionen
-direkt über Swagger ausprobieren können. Lesende Aufrufe sind ohne Anmeldung
-möglich, schreibende Aufrufe erfordern einen Demo-Zugang (siehe
-[Zugriff und Rollen](#zugriff-und-rollen)). HTTP-DELETE-Aufrufe auf `/api/**`
-sind serverseitig gesperrt. Da die Demo-Zugänge öffentlich sind, darf die
-Umgebung ausschließlich mit synthetischen Demo-Daten betrieben werden. Sie ist
-nicht für echte Kunden- oder Versicherungsdaten geeignet.
+**Diagnose:** `docker compose -f docker-compose.prod.yml ps` zeigt den
+Health-Status, `docker compose -f docker-compose.prod.yml logs backend` die
+Logs (eine JSON-Zeile pro Eintrag).
 
-## Qualitätssicherung
-
-```powershell
-npm run lint
-npm run build
-npm run test:backend
-```
-
-`npm run test:backend` ist für PowerShell/Windows eingerichtet. Unter
-macOS/Linux kann der Backend-Testlauf direkt über den Maven Wrapper gestartet
-werden:
-
-```bash
-bash backend/mvnw -f backend/pom.xml test
-```
-
-Die GitHub-Actions-CI führt Frontend-Linting und -Build sowie `mvn verify` für
-das Backend aus.
-
-## API ausprobieren
-
-Swagger UI lokal: <http://localhost:8080/swagger-ui.html>
-
-Swagger öffentlich: <https://insurance.hunarkarim.de/swagger-ui.html>
-
-Die OpenAPI-Beschreibung liegt unter
-<https://insurance.hunarkarim.de/v3/api-docs>.
-
-### Zugriff und Rollen
-
-Die API nutzt HTTP Basic. In Swagger über **Authorize** anmelden; die
-Demo-Zugänge stehen in der API-Beschreibung oben in Swagger und unter
-`GET /api/auth/demo-accounts`. Standardmäßig ist das Passwort jeweils der
-Benutzername: `customer` / `customer`, `clerk` / `clerk`, `admin` / `admin`.
-Im Frontend meldet man sich oben rechts über **Anmelden** mit einem Klick an.
-
-| Aktion                                                    | Berechtigung               |
-| --------------------------------------------------------- | -------------------------- |
-| Policen, Claims, Produkte, Payouts lesen                  | öffentlich                 |
-| Schaden melden (`POST /api/claims`)                       | `CUSTOMER`, `CLERK`, `ADMIN` |
-| Claim-Status ändern, Police ausstellen/stornieren         | `CLERK`, `ADMIN`           |
-| Kunden auflisten/anlegen, Underwriting-Prüfung            | `CLERK`, `ADMIN`           |
-| Produkt anlegen, Auszahlung ausführen, Audit-Trail lesen  | `ADMIN`                    |
-| `DELETE /api/**`                                          | gesperrt                   |
-
-Ohne Anmeldung antwortet die API mit `401`, mit unzureichender Rolle mit `403`.
-
-Zusätzlich gilt eine Eigentumsprüfung: Der Login `customer` steht für den
-Demo-Kunden `DEMO-1001` und darf Schäden nur für dessen eigene Policen melden.
-Ein Versuch mit einer fremden Police wird mit `403` abgelehnt; Sachbearbeiter
-und Administratoren dürfen für alle Kunden erfassen.
-
-Beispiele für die Claim-Übersicht (öffentlich lesbar):
+## API-Beispiele
 
 ```text
-GET /api/claims?page=0&size=20
-GET /api/claims?page=0&size=20&policyId=12345
-GET /api/claims/4712
+GET   /api/claims?page=0&size=20
+GET   /api/claims?page=0&size=20&policyId=12345
+PATCH /api/claims/4712/status?newStatus=IN_REVIEW
+POST  /api/policies/12/cancel?effectiveOn=2026-12-31
 ```
 
-Die Claim-Übersicht ist 0-basiert paginiert, liefert standardmäßig 20 und
-maximal 100 Einträge pro Seite. Weitere Endpunkte und Antwortformate sind in
-Swagger beschrieben.
+Die Claim-Übersicht ist 0-basiert paginiert, standardmäßig 20 und höchstens 100
+Einträge pro Seite. Alle Endpunkte und Schemata stehen in Swagger.
 
 ## Projektstruktur
 
 ```text
-backend/    Spring-Boot-Anwendung, Tests und Datenbankmigrationen
-frontend/   React-/TypeScript-Anwendung
-docs/       Architektur-, API- und Entscheidungsdokumentation
-infra/      ergänzende Infrastrukturdateien
+backend/    Spring-Boot-Anwendung, Tests und Flyway-Migrationen
+frontend/   React-/TypeScript-Anwendung (Caddy-Image: frontend/Dockerfile)
+docs/       Architektur, API, ADRs, Diagramme
+.github/    CI/CD-Workflows und Copilot-Anweisungen
 ```
