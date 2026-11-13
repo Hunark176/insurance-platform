@@ -12,7 +12,7 @@ frontend/generated/
 .env
 .env.*
 !.env.example
-application/read_file.md
+
 # IDE
 .idea/
 .vscode/
@@ -21,5 +21,6 @@ application/read_file.md
 !frontend/.vscode/extensions.json
 *.iml
 
-# Logs
+# Logs (including rotated archives such as insurance-platform.log.2026-11-01.0.gz)
 *.log
+logs/

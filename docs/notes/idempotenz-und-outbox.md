@@ -1,3 +1,5 @@
+> **Historische Notiz (Stand 2. November 2026).** Seitdem umgesetzt: persistente Outbox (ADR 0002, PR #4). Die Idempotenz von API-Schreibaufrufen (Idempotency-Key) ist weiterhin offen.
+
 **Kurz gesagt: Teilweise.** Es gibt eine begrenzte Deduplizierung für Folgeaktionen, aber **keine allgemeine Idempotenz für API-Aufrufe**. Eine **persistente Outbox bzw. dauerhaft gespeicherte Event-Wiederzustellung ist nicht implementiert**. Das ist im aktuellen modularen Monolithen eine bewusste Vereinfachung – aber für zuverlässige, asynchrone oder externe Geschäftsabläufe eine wichtige spätere Ausbaustufe.
 
 ### 1. Was „idempotent“ bedeutet
