@@ -11,6 +11,7 @@ import de.hunar.insurance.policy.domain.PolicyRepository;
 import de.hunar.insurance.policy.domain.PolicyStatus;
 import de.hunar.insurance.policy.dto.IssuePolicyRequest;
 import de.hunar.insurance.policy.dto.PolicyResponse;
+import de.hunar.insurance.policy.events.PolicyCancelledEvent;
 import de.hunar.insurance.policy.events.PolicyIssuedEvent;
 import de.hunar.insurance.policy.mapper.PolicyMapper;
 import de.hunar.insurance.product.ProductApi;
@@ -144,12 +145,17 @@ public class PolicyService implements PolicyApi {
         LocalDate today = LocalDate.now(clock);
         policy.cancel(effectiveOn == null ? today : effectiveOn, today);
         Policy cancelledPolicy = repository.save(policy);
+        AuditContext context = auditTrail.captureContext();
         auditTrail.record("STATUS_CHANGED", "POLICY", id.toString(),
                 "from=" + previousStatus + ",to=" + cancelledPolicy.getStatus()
                         + ",effectiveOn=" + cancelledPolicy.getCancelledOn(),
-                auditTrail.captureContext());
+                context);
         log.info("Policy status changed: policyId={} fromStatus={} toStatus={} effectiveOn={}",
                 id, previousStatus, cancelledPolicy.getStatus(), cancelledPolicy.getCancelledOn());
+        // Billing credits the premium for the period after the cancellation (stored in the outbox).
+        eventPublisher.publishEvent(new PolicyCancelledEvent(cancelledPolicy.getId(), cancelledPolicy.getCustomerId(),
+                cancelledPolicy.getValidFrom(), cancelledPolicy.getValidTo(), cancelledPolicy.getCancelledOn(),
+                Money.eur(cancelledPolicy.getPremium()), context));
         return mapper.toResponse(cancelledPolicy, customerApi.findById(cancelledPolicy.getCustomerId()),
                 productApi.findById(cancelledPolicy.getProductId()));
     }
