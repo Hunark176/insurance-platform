@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # Same major version as production (docker-compose.prod.yml) and the
+    # Testcontainers tests, so migrations behave identically everywhere.
+    image: postgres:15-alpine
     environment:
       POSTGRES_DB: insurance
       POSTGRES_USER: insurance
@@ -8,7 +10,15 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - insurance-postgres-data:/var/lib/postgresql/data
+      # A PostgreSQL data directory only works with the major version that created
+      # it. The volume name contains the version so an older local volume created
+      # with PostgreSQL 16 is left untouched instead of failing to start.
+      - insurance-postgres15-data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U insurance -d insurance
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   app:
     build:
@@ -23,7 +33,7 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
-  insurance-postgres-data:
+  insurance-postgres15-data:
