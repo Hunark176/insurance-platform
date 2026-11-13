@@ -1,0 +1,1489 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "Modular monolith insurance domain API.\n\n**Zugriff:** Lesende Endpunkte sind öffentlich. Schreibende Endpunkte (Schloss-Symbol) erfordern eine Anmeldung über **Authorize**:\n`CUSTOMER` meldet Schäden, `CLERK` bearbeitet Schäden, Policen und Kunden, `ADMIN` darf zusätzlich Produkte anlegen, Auszahlungen ausführen und den Audit-Trail lesen.\n\n**Demo-Zugänge** (Benutzername / Passwort):\n\n- `customer` / `customer` (CUSTOMER)\n- `clerk` / `clerk` (CLERK)\n- `admin` / `admin` (ADMIN)",
+    "title" : "Insurance Platform API",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "description" : "Schadenfälle verwalten",
+    "name" : "Claims"
+  }, {
+    "description" : "Anmeldung und Demo-Zugänge",
+    "name" : "Auth"
+  } ],
+  "paths" : {
+    "/api/audit-trail" : {
+      "get" : {
+        "operationId" : "findForEntity",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "entityType",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "entityId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageAuditEntryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "audit-trail-controller" ]
+      }
+    },
+    "/api/auth/demo-accounts" : {
+      "get" : {
+        "operationId" : "demoAccounts",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DemoAccount"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Öffentliche Demo-Zugänge auflisten",
+        "tags" : [ "Auth" ]
+      }
+    },
+    "/api/auth/me" : {
+      "get" : {
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CurrentUser"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "summary" : "Angemeldeten Benutzer abfragen",
+        "tags" : [ "Auth" ]
+      }
+    },
+    "/api/claims" : {
+      "get" : {
+        "operationId" : "getAllClaims",
+        "parameters" : [ {
+          "description" : "0-basierte Seitennummer",
+          "example" : 0,
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Anzahl der Claims pro Seite (maximal 100)",
+          "example" : 20,
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Optionaler Filter für die zugehörige Police",
+          "example" : 12345,
+          "in" : "query",
+          "name" : "policyId",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "exclusiveMinimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimPageResponse"
+                }
+              }
+            },
+            "description" : "Paginierte Claim-Übersicht erfolgreich geladen"
+          }
+        },
+        "summary" : "Paginierte Claim-Übersicht laden",
+        "tags" : [ "Claims" ]
+      },
+      "post" : {
+        "operationId" : "createClaim",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateClaimRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Claim erfolgreich erstellt"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Anmeldung erforderlich"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "summary" : "Neuen Claim erstellen",
+        "tags" : [ "Claims" ]
+      }
+    },
+    "/api/claims/{id}" : {
+      "get" : {
+        "operationId" : "getClaim",
+        "parameters" : [ {
+          "description" : "ID des Claims",
+          "example" : 1,
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Claim gefunden"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Claim nicht gefunden"
+          }
+        },
+        "summary" : "Claim nach ID suchen",
+        "tags" : [ "Claims" ]
+      }
+    },
+    "/api/claims/{id}/status" : {
+      "patch" : {
+        "operationId" : "updateStatus",
+        "parameters" : [ {
+          "description" : "ID des Claims",
+          "example" : 1,
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "Neuer Status",
+          "example" : "IN_REVIEW",
+          "in" : "query",
+          "name" : "newStatus",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "description" : "Status eines Claims",
+            "enum" : [ "RECEIVED", "IN_REVIEW", "APPROVED", "REJECTED" ],
+            "example" : "RECEIVED"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Status erfolgreich aktualisiert"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Anmeldung erforderlich"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Rolle CLERK oder ADMIN erforderlich"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description" : "Claim nicht gefunden"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "summary" : "Status eines Claims aktualisieren (CLERK, ADMIN)",
+        "tags" : [ "Claims" ]
+      }
+    },
+    "/api/credit-notes" : {
+      "get" : {
+        "description" : "Anteilige Prämie für den nicht mehr gedeckten Zeitraum (§ 39 VVG).",
+        "operationId" : "findAll_4",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseCreditNoteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Gutschriften nach Policenstorno auflisten",
+        "tags" : [ "credit-note-controller" ]
+      }
+    },
+    "/api/customers" : {
+      "get" : {
+        "operationId" : "findAll_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseCustomerResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "customer-controller" ]
+      },
+      "post" : {
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateCustomerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "customer-controller" ]
+      }
+    },
+    "/api/customers/{id}" : {
+      "get" : {
+        "operationId" : "findById_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "customer-controller" ]
+      }
+    },
+    "/api/payouts" : {
+      "get" : {
+        "operationId" : "findAll_3",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePayoutResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "billing-controller" ]
+      }
+    },
+    "/api/payouts/{id}/pay" : {
+      "post" : {
+        "operationId" : "markPaid",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PayoutResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "billing-controller" ]
+      }
+    },
+    "/api/policies" : {
+      "get" : {
+        "operationId" : "findAll_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePolicyResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "policy-controller" ]
+      },
+      "post" : {
+        "operationId" : "issue",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IssuePolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "policy-controller" ]
+      }
+    },
+    "/api/policies/{id}" : {
+      "get" : {
+        "operationId" : "find",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "policy-controller" ]
+      }
+    },
+    "/api/policies/{id}/cancel" : {
+      "post" : {
+        "description" : "Schäden bis einschließlich zum Wirksamkeitsdatum bleiben gedeckt und können weiterhin gemeldet und reguliert werden. Rückwirkende Stornos sind nicht möglich.",
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "Letzter gedeckter Tag (Standard: heute)",
+          "example" : "2026-12-31",
+          "in" : "query",
+          "name" : "effectiveOn",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "summary" : "Police stornieren (CLERK, ADMIN)",
+        "tags" : [ "policy-controller" ]
+      }
+    },
+    "/api/products" : {
+      "get" : {
+        "operationId" : "findAll",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProductResponse"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "product-controller" ]
+      },
+      "post" : {
+        "operationId" : "create",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateProductRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductResponse"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "product-controller" ]
+      }
+    },
+    "/api/products/{id}" : {
+      "get" : {
+        "operationId" : "findById",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProductResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "product-controller" ]
+      }
+    },
+    "/api/underwriting/check" : {
+      "post" : {
+        "operationId" : "check",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UnderwritingCheckRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UnderwritingCheckResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "basicAuth" : [ ]
+        } ],
+        "tags" : [ "underwriting-controller" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "AuditEntryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "actor" : {
+            "type" : "string"
+          },
+          "entityId" : {
+            "type" : "string"
+          },
+          "entityType" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ClaimPageResponse" : {
+        "type" : "object",
+        "description" : "Eine paginierte Übersicht von Schadenfällen",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ClaimResponse"
+            }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ClaimResponse" : {
+        "type" : "object",
+        "description" : "Antwortdaten eines Schadenfalls",
+        "properties" : {
+          "amount" : {
+            "type" : "number",
+            "description" : "Geschätzter Schadenbetrag in Euro",
+            "example" : 500.0
+          },
+          "claimType" : {
+            "type" : "string",
+            "description" : "Typ des Schadenfalls",
+            "example" : "AUTO"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Zeitpunkt der Erstellung",
+            "example" : "2026-09-24T17:00:00Z"
+          },
+          "customerName" : {
+            "type" : "string",
+            "description" : "Anzeigename des Kunden",
+            "example" : "Max Mustermann"
+          },
+          "customerNumber" : {
+            "type" : "string",
+            "description" : "Kundennummer",
+            "example" : "K12345"
+          },
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "Detaillierte Schadensbeschreibung",
+            "example" : "Kratzer an der linken Fahrzeugtür"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Eindeutige ID des Claims",
+            "example" : 1
+          },
+          "occurredOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Datum des Schadenereignisses",
+            "example" : "2026-09-20"
+          },
+          "policyId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "Aktueller Bearbeitungsstatus",
+            "enum" : [ "RECEIVED", "IN_REVIEW", "APPROVED", "REJECTED" ],
+            "example" : "RECEIVED"
+          }
+        }
+      },
+      "CreateClaimRequest" : {
+        "type" : "object",
+        "description" : "Claim-Daten zum Erstellen",
+        "properties" : {
+          "amount" : {
+            "type" : "number",
+            "description" : "Geschätzter Schadenbetrag in Euro",
+            "example" : 500.0,
+            "minimum" : 0.01
+          },
+          "claimType" : {
+            "type" : "string",
+            "enum" : [ "AUTO", "HOME", "LIFE", "LIABILITY" ]
+          },
+          "customerNumber" : {
+            "type" : "string",
+            "description" : "Kundennummer",
+            "example" : "K12345",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "Detaillierte Schadensbeschreibung",
+            "example" : "Kratzer an der linken Fahrzeugtür",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "occurredOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "policyId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "amount", "claimType", "customerNumber", "occurredOn", "policyId" ]
+      },
+      "CreateCustomerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "customerNumber" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 320,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "customerNumber", "displayName", "email" ]
+      },
+      "CreateProductRequest" : {
+        "type" : "object",
+        "properties" : {
+          "annualAggregateFactor" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Jahreshöchstleistung als Vielfaches der Deckungssumme (z. B. 2 = alle Schäden eines Versicherungsjahres zusammen höchstens 2 × Deckungssumme). Leer = nur Deckungssumme je Schadenfall.",
+            "example" : 2,
+            "maximum" : 10,
+            "minimum" : 1
+          },
+          "code" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "coverageLimit" : {
+            "type" : "number",
+            "minimum" : 0.01
+          },
+          "name" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "premium" : {
+            "type" : "number",
+            "minimum" : 0.0
+          }
+        },
+        "required" : [ "code", "coverageLimit", "name", "premium" ]
+      },
+      "CreditNoteResponse" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "creditedDays" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "customerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "policyId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "termDays" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "CurrentUser" : {
+        "type" : "object",
+        "properties" : {
+          "customerNumber" : {
+            "type" : [ "string", "null" ]
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CustomerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "customerNumber" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DemoAccount" : {
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "IssuePolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "customerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        },
+        "required" : [ "customerId", "productId", "validFrom", "validTo" ]
+      },
+      "PageAuditEntryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AuditEntryResponse"
+            }
+          },
+          "empty" : {
+            "type" : "boolean"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageResponseCreditNoteResponse" : {
+        "type" : "object",
+        "description" : "Eine Seite einer paginierten Liste",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CreditNoteResponse"
+            }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageResponseCustomerResponse" : {
+        "type" : "object",
+        "description" : "Eine Seite einer paginierten Liste",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CustomerResponse"
+            }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageResponsePayoutResponse" : {
+        "type" : "object",
+        "description" : "Eine Seite einer paginierten Liste",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PayoutResponse"
+            }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageResponsePolicyResponse" : {
+        "type" : "object",
+        "description" : "Eine Seite einer paginierten Liste",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyResponse"
+            }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PageableObject" : {
+        "type" : "object",
+        "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "paged" : {
+            "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PayoutResponse" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "number"
+          },
+          "claimId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "policyId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "EXECUTED" ]
+          }
+        }
+      },
+      "PolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "annualAggregateLimit" : {
+            "type" : [ "number", "null" ],
+            "description" : "Jahreshöchstleistung je Versicherungsjahr"
+          },
+          "cancelledOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Letzter gedeckter Tag einer stornierten Police"
+          },
+          "coverageLimit" : {
+            "type" : "number"
+          },
+          "customerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "customerName" : {
+            "type" : "string"
+          },
+          "customerNumber" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "premium" : {
+            "type" : "number"
+          },
+          "productId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "CANCELLED", "EXPIRED" ]
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "validTo" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
+      "ProductResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "boolean"
+          },
+          "annualAggregateFactor" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "coverageLimit" : {
+            "type" : "number"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "premium" : {
+            "type" : "number"
+          }
+        }
+      },
+      "SortObject" : {
+        "type" : "object",
+        "properties" : {
+          "empty" : {
+            "type" : "boolean"
+          },
+          "sorted" : {
+            "type" : "boolean"
+          },
+          "unsorted" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "UnderwritingCheckRequest" : {
+        "type" : "object",
+        "properties" : {
+          "customerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "productId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "customerId", "productId" ]
+      },
+      "UnderwritingCheckResponse" : {
+        "type" : "object",
+        "properties" : {
+          "customerId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "eligible" : {
+            "type" : "boolean"
+          },
+          "productId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "basicAuth" : {
+        "scheme" : "basic",
+        "type" : "http"
+      }
+    }
+  }
+}
