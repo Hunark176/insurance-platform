@@ -9,6 +9,8 @@
     "lint": "npm --prefix frontend run lint",
     "format": "npm --prefix frontend run format",
     "format:check": "npm --prefix frontend run format:check",
+    "typecheck": "npm --prefix frontend run typecheck",
+    "test:frontend": "npm --prefix frontend test",
     "test:backend": "backend\\mvnw.cmd -f backend\\pom.xml test",
     "build:backend": "backend\\mvnw.cmd -f backend\\pom.xml verify"
   },
