@@ -18,25 +18,25 @@ Frontend aus (`frontend/Dockerfile`).
 
 ## Skripte
 
-| Skript                 | Zweck                                         |
-| ---------------------- | --------------------------------------------- |
-| `npm run dev`          | Entwicklungsserver auf Port 5173              |
-| `npm test`             | Vitest einmal ausführen                       |
-| `npm run test:watch`   | Vitest im Watch-Modus                         |
-| `npm run typecheck`    | Typprüfung (`tsc -b`)                         |
-| `npm run build`        | Typprüfung und Produktions-Build              |
-| `npm run lint`         | ESLint                                        |
-| `npm run format:check` | Prettier-Prüfung (`npm run format` behebt)    |
+| Skript                 | Zweck                                      |
+| ---------------------- | ------------------------------------------ |
+| `npm run dev`          | Entwicklungsserver auf Port 5173           |
+| `npm test`             | Vitest einmal ausführen                    |
+| `npm run test:watch`   | Vitest im Watch-Modus                      |
+| `npm run typecheck`    | Typprüfung (`tsc -b`)                      |
+| `npm run build`        | Typprüfung und Produktions-Build           |
+| `npm run lint`         | ESLint                                     |
+| `npm run format:check` | Prettier-Prüfung (`npm run format` behebt) |
 
 ## Aufbau
 
-| Pfad                     | Inhalt                                                                  |
-| ------------------------ | ----------------------------------------------------------------------- |
+| Pfad                     | Inhalt                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------- |
 | `src/api/`               | `apiClient` (Request-ID, Basic-Auth, `X-Requested-With`), Services, Fehlertexte |
-| `src/features/auth/`     | Login-Dialog, Benutzermenü, Sitzungsspeicher (`sessionStorage`), `useAuth` |
-| `src/features/claims/`   | Claim-Übersicht, Statusbadges, rollenabhängige Aktionen                  |
-| `src/features/policies/` | Policenübersicht                                                        |
-| `src/types/`             | Transporttypen der API                                                  |
+| `src/features/auth/`     | Login-Dialog, Benutzermenü, Sitzungsspeicher (`sessionStorage`), `useAuth`      |
+| `src/features/claims/`   | Claim-Übersicht, Statusbadges, rollenabhängige Aktionen                         |
+| `src/features/policies/` | Policenübersicht                                                                |
+| `src/types/`             | Transporttypen der API                                                          |
 
 Die Anmeldung gilt nur für den Browser-Tab. Das Frontend blendet Aktionen nach
 Rolle aus; die verbindliche Prüfung macht immer das Backend. Tests liegen als
