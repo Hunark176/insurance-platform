@@ -8,6 +8,7 @@ sind die einzige gepflegte Fassung; der Code ist bei Abweichungen maßgeblich.
 - [Architektur-Kurzüberblick](architecture.md)
 - [Technische Architektur- und Schnittstellendokumentation](architecture/technical-documentation.md) – Module, Schnittstellen, Fachregeln, Sicherheit, Betrieb
 - [API-Dokumentation](api/README.md) – Zugänge, Fehler, wichtige Endpunkte
+- [Betrieb](operations.md) – Zustand prüfen, Backup, Demodaten-Reset, PostgreSQL-Upgrade
 
 ## Arbeitsgrundlagen
 
@@ -24,6 +25,7 @@ sind die einzige gepflegte Fassung; der Code ist bei Abweichungen maßgeblich.
 | [0003](adr/0003-persistenzzugriff-im-domain-modul.md) | Spring-Data-Repositories direkt im Fachmodul |
 | [0004](adr/0004-claim-policy-migration.md) | Bestehende Claims sicher an Policen anbinden |
 | [0005](adr/0005-deckungsregeln.md) | Deckungsregeln: Schadenereignisprinzip und Jahreshöchstleistung |
+| [0006](adr/0006-idempotency-key.md) | Idempotency-Key für schreibende API-Aufrufe |
 
 Neue ADRs bekommen die nächste freie Nummer und werden hier eingetragen.
 

@@ -37,6 +37,7 @@
 - Backend CI-equivalent verification on Windows: `.\backend\mvnw.cmd -f backend\pom.xml verify`
 - Backend CI-equivalent verification on Linux/macOS: `bash backend/mvnw -f backend/pom.xml verify`
 - Frontend checks from the repository root: `npm run lint`, `npm run format:check`, `npm run test:frontend`, and `npm run build` (includes `tsc -b`)
-- The PostgreSQL integration test needs Docker; it is skipped locally without Docker but never in CI.
+- The PostgreSQL integration tests need Docker; they are skipped locally without Docker but never in CI.
+- After changing backend DTOs or endpoints: run `OpenApiContractExportTest` with `-Dopenapi.export=true`, then `npm run generate:api-types` in `frontend/`, and commit both. CI fails on drift. Do not edit `src/api/generated/` by hand.
 
 Run `npm ci --prefix frontend` only if dependencies are not installed or the frontend lockfile has changed. Do not install dependencies or change lockfiles just to explore the project.

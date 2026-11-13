@@ -18,15 +18,16 @@ Frontend aus (`frontend/Dockerfile`).
 
 ## Skripte
 
-| Skript                 | Zweck                                      |
-| ---------------------- | ------------------------------------------ |
-| `npm run dev`          | Entwicklungsserver auf Port 5173           |
-| `npm test`             | Vitest einmal ausführen                    |
-| `npm run test:watch`   | Vitest im Watch-Modus                      |
-| `npm run typecheck`    | Typprüfung (`tsc -b`)                      |
-| `npm run build`        | Typprüfung und Produktions-Build           |
-| `npm run lint`         | ESLint                                     |
-| `npm run format:check` | Prettier-Prüfung (`npm run format` behebt) |
+| Skript                       | Zweck                                      |
+| ---------------------------- | ------------------------------------------ |
+| `npm run dev`                | Entwicklungsserver auf Port 5173           |
+| `npm test`                   | Vitest einmal ausführen                    |
+| `npm run test:watch`         | Vitest im Watch-Modus                      |
+| `npm run typecheck`          | Typprüfung (`tsc -b`)                      |
+| `npm run build`              | Typprüfung und Produktions-Build           |
+| `npm run lint`               | ESLint                                     |
+| `npm run format:check`       | Prettier-Prüfung (`npm run format` behebt) |
+| `npm run generate:api-types` | API-Typen aus `openapi.json` erzeugen      |
 
 ## Aufbau
 
