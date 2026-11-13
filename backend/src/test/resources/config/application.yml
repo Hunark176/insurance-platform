@@ -1,0 +1,6 @@
+# Test-only overrides; loaded in addition to src/main/resources/application.yml.
+insurance:
+  # Test suites send many requests from the same address within a minute.
+  # RateLimitFilterTest covers the limiter directly.
+  rate-limit:
+    enabled: false
