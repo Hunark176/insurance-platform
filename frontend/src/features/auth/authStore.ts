@@ -19,7 +19,12 @@ function readStoredSession(): Session | null {
       typeof parsed.token === 'string' &&
       Array.isArray(parsed.roles)
     ) {
-      return { username: parsed.username, token: parsed.token, roles: parsed.roles as Role[] }
+      return {
+        username: parsed.username,
+        token: parsed.token,
+        roles: parsed.roles as Role[],
+        customerNumber: typeof parsed.customerNumber === 'string' ? parsed.customerNumber : null,
+      }
     }
   } catch {
     // Storage can be unavailable (private mode, blocked site data); the app works without it.

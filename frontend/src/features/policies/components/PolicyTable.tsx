@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/utils/formatters'
 import type { Policy } from '@/types/policy'
+import { PolicyActions } from './PolicyActions'
 
 interface PolicyTableProps {
   policies: Policy[]
@@ -12,6 +13,13 @@ interface PolicyTableProps {
   sortDirection: 'asc' | 'desc'
   onSort: (field: 'id' | 'premium') => void
   onLoadPolicies: () => void
+  page: number
+  totalPages: number
+  totalPolicies: number
+  onPageChange: (page: number) => void
+  cancellingId: number | null
+  onCancel: (id: number, effectiveOn: string) => Promise<boolean>
+  onLoginRequired: () => void
 }
 
 const formatDate = (date: string) =>
@@ -29,6 +37,13 @@ export function PolicyTable({
   sortDirection,
   onSort,
   onLoadPolicies,
+  page,
+  totalPages,
+  totalPolicies,
+  onPageChange,
+  cancellingId,
+  onCancel,
+  onLoginRequired,
 }: PolicyTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-sm">
@@ -36,7 +51,8 @@ export function PolicyTable({
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Versicherungspolicen</h2>
           <p className="mt-1 text-sm text-gray-500">
-            {filteredPolicies.length} von {policies.length} Policen
+            {filteredPolicies.length} von {policies.length} Policen auf dieser Seite ·{' '}
+            {totalPolicies} insgesamt
           </p>
         </div>
         <input
@@ -98,6 +114,9 @@ export function PolicyTable({
                 <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   Status
                 </th>
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Aktion
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -128,8 +147,20 @@ export function PolicyTable({
                           : 'bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-300'
                       }`}
                     >
-                      {policy.status === 'ACTIVE' ? 'Aktiv' : 'Gekündigt'}
+                      {policy.status === 'ACTIVE'
+                        ? 'Aktiv'
+                        : policy.status === 'CANCELLED'
+                          ? 'Storniert'
+                          : 'Abgelaufen'}
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4 text-right">
+                    <PolicyActions
+                      policy={policy}
+                      cancelling={cancellingId === policy.id}
+                      onCancel={onCancel}
+                      onLoginRequired={onLoginRequired}
+                    />
                   </td>
                 </tr>
               ))}
@@ -140,6 +171,30 @@ export function PolicyTable({
               Keine Policen für diese Suche gefunden.
             </div>
           )}
+        </div>
+      )}
+
+      {totalPages > 1 && !loading && (
+        <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-gray-50 px-6 py-4 text-sm text-gray-500">
+          <button
+            type="button"
+            disabled={page === 0}
+            onClick={() => onPageChange(page - 1)}
+            className="rounded-lg border border-gray-300 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Zurück
+          </button>
+          <span>
+            Seite {page + 1} von {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={page + 1 >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            className="rounded-lg border border-gray-300 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Weiter
+          </button>
         </div>
       )}
     </div>

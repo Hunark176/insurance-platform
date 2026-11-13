@@ -1,30 +1,46 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchPolicies } from '@/api/policyService'
+import { cancelPolicy, fetchPolicies } from '@/api/policyService'
+import { describeApiError } from '@/api/apiErrors'
 import type { Policy } from '@/types/policy'
 
 type SortField = 'id' | 'premium'
 type SortDirection = 'asc' | 'desc'
 
+export interface PolicyNotice {
+  tone: 'success' | 'error'
+  text: string
+}
+
+/** Page size for the policy overview; the API allows at most 100. */
+const PAGE_SIZE = 100
+
 export function usePolicies() {
   const [policies, setPolicies] = useState<Policy[]>([])
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState<PolicyNotice | null>(null)
   const [loading, setLoading] = useState(false)
+  const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalPolicies, setTotalPolicies] = useState(0)
 
   const handleLoadPolicies = useCallback(async () => {
     try {
       setLoading(true)
-      setMessage('')
-      setPolicies(await fetchPolicies())
-      setMessage('Policen erfolgreich geladen.')
-    } catch {
-      setMessage('Policen konnten nicht geladen werden.')
+      setMessage(null)
+      const data = await fetchPolicies(page, PAGE_SIZE)
+      setPolicies(data.content)
+      setTotalPages(data.totalPages)
+      setTotalPolicies(data.totalElements)
+      setMessage({ tone: 'success', text: 'Policen erfolgreich geladen.' })
+    } catch (error) {
+      setMessage({ tone: 'error', text: describeApiError(error) })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -33,6 +49,25 @@ export function usePolicies() {
     return () => window.clearTimeout(timer)
   }, [handleLoadPolicies])
 
+  const handleCancel = useCallback(async (id: number, effectiveOn: string): Promise<boolean> => {
+    setCancellingId(id)
+    setMessage(null)
+    try {
+      const updated = await cancelPolicy(id, effectiveOn)
+      setPolicies((current) => current.map((policy) => (policy.id === id ? updated : policy)))
+      setMessage({
+        tone: 'success',
+        text: `Police #${id} storniert. Schäden bis einschließlich ${effectiveOn} bleiben gedeckt; die anteilige Prämie wird gutgeschrieben.`,
+      })
+      return true
+    } catch (error) {
+      setMessage({ tone: 'error', text: `Police #${id}: ${describeApiError(error)}` })
+      return false
+    } finally {
+      setCancellingId(null)
+    }
+  }, [])
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((direction) => (direction === 'asc' ? 'desc' : 'asc'))
@@ -40,6 +75,12 @@ export function usePolicies() {
     }
     setSortField(field)
     setSortDirection('asc')
+  }
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage >= 0 && nextPage < totalPages) {
+      setPage(nextPage)
+    }
   }
 
   const searchValue = search.toLowerCase()
@@ -71,7 +112,13 @@ export function usePolicies() {
     sortField,
     sortDirection,
     totalCoverage,
+    page,
+    totalPages,
+    totalPolicies,
+    cancellingId,
     handleLoadPolicies,
     handleSort,
+    handlePageChange,
+    handleCancel,
   }
 }

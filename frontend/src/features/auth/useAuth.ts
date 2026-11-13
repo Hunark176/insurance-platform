@@ -13,7 +13,12 @@ export function useAuth() {
     const token = toBasicToken(username, password)
     try {
       const user = await fetchCurrentUser(token)
-      authStore.setSession({ username: user.username, roles: user.roles, token })
+      authStore.setSession({
+        username: user.username,
+        roles: user.roles,
+        token,
+        customerNumber: user.customerNumber ?? null,
+      })
       return { ok: true }
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
