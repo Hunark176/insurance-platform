@@ -59,6 +59,8 @@ insurance:
       retry-interval: PT1M
       retry-older-than: PT5M
       completed-retention: P7D
+      # /actuator/health reports DOWN while publications stay incomplete longer than this.
+      stuck-after: PT30M
   # Public demo logins. Each password defaults to the username in every profile; set
   # DEMO_*_PASSWORD environment variables to override them.
   security:
