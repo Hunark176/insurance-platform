@@ -46,6 +46,7 @@ public class ProductController {
     @GetMapping("/{id}")
     public ProductResponse findById(@PathVariable Long id) {
         var p = service.findById(id);
-        return new ProductResponse(p.id(), p.code(), p.name(), p.coverageLimit(), p.premium(), p.active());
+        return new ProductResponse(p.id(), p.code(), p.name(), p.coverageLimit(), p.premium(), p.active(),
+                p.annualAggregateFactor());
     }
 }

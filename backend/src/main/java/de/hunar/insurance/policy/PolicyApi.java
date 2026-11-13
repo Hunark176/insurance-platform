@@ -28,12 +28,30 @@ public interface PolicyApi {
     List<PolicySnapshot> getSnapshots(Collection<Long> policyIds);
 
     /**
-     * Evaluates whether an active policy covers a date.
+     * Evaluates whether a loss on the given date is covered (loss-occurrence principle).
+     *
+     * <p>Only the loss date matters: a cancelled or expired policy still covers losses that
+     * occurred while it was in force, so such claims can be reported and settled later.</p>
      *
      * @param policyId policy identifier
-     * @param date date on which coverage is required
-     * @return {@code true} when the policy is active and the date is within its coverage term
+     * @param lossDate date on which the loss occurred
+     * @return {@code true} when the date lies between the start of the term and the end of
+     *         coverage (end of term or cancellation date), both inclusive
      * @throws de.hunar.insurance.shared.web.ResourceNotFoundException if the policy does not exist
      */
-    boolean isActiveAt(Long policyId, LocalDate date);
+    boolean isCoveredOn(Long policyId, LocalDate lossDate);
+
+    /**
+     * Locks the policy for the rest of the caller's transaction and returns its snapshot.
+     *
+     * <p>Claim approval uses this before summing the amounts already approved in a policy
+     * year, so two concurrent approvals for the same policy cannot both pass the annual
+     * aggregate check. Must be called inside an existing transaction.</p>
+     *
+     * @param policyId policy identifier
+     * @return snapshot of the locked policy
+     * @throws de.hunar.insurance.shared.web.ResourceNotFoundException if the policy does not exist
+     * @throws org.springframework.transaction.IllegalTransactionStateException if no transaction is active
+     */
+    PolicySnapshot lockForClaimApproval(Long policyId);
 }
