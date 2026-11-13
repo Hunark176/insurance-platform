@@ -38,6 +38,12 @@ management:
         readiness:
           include: readinessState,db
 insurance:
+  # POST requests with an Idempotency-Key header are answered once and replayed on retry
+  # (see IdempotencyFilter).
+  idempotency:
+    enabled: true
+    retention: PT24H
+    stale-after: PT5M
   # Requests per client IP and minute on /api/** (see RateLimitFilter). The demo logins
   # are public, so this protects against mass writes and password guessing.
   rate-limit:
