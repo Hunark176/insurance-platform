@@ -1,5 +1,6 @@
 package de.hunar.insurance.policy.domain;
 
+import de.hunar.insurance.shared.domain.DomainException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
@@ -100,11 +101,11 @@ public class Policy {
     /**
      * Cancels an active policy.
      *
-     * @throws IllegalStateException if the policy is not active
+     * @throws DomainException if the policy is not active
      */
     public void cancel() {
         if (status != PolicyStatus.ACTIVE) {
-            throw new IllegalStateException("Only an active policy can be cancelled");
+            throw new DomainException("Only an active policy can be cancelled");
         }
         status = PolicyStatus.CANCELLED;
     }

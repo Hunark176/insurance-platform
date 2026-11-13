@@ -1,5 +1,6 @@
 package de.hunar.insurance.claim.domain;
 
+import de.hunar.insurance.shared.domain.DomainException;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -188,7 +189,7 @@ public class Claim {
      * terminal states cannot transition further.</p>
      *
      * @param target proposed next status
-     * @throws IllegalStateException if the transition is not permitted
+     * @throws DomainException if the transition is not permitted
      */
     public void assertCanTransitionTo(ClaimStatus target) {
         boolean valid = target != null && switch (status) {
@@ -197,18 +198,47 @@ public class Claim {
             case APPROVED, REJECTED -> false;
         };
         if (!valid) {
-            throw new IllegalStateException("Ungültiger Status-Übergang: " + status + " → " + target);
+            throw new DomainException("Ungültiger Status-Übergang: " + status + " → " + target);
         }
     }
 
     /**
-     * Applies a permitted status transition.
+     * Applies a permitted status transition other than approval.
+     *
+     * <p>Approval has additional coverage rules and must go through
+     * {@link #approve(BigDecimal, boolean)}, so they cannot be bypassed.</p>
      *
      * @param target next status in the claim lifecycle
-     * @throws IllegalStateException if the transition is not permitted
+     * @throws DomainException if the transition is not permitted or {@code target} is APPROVED
      */
     public void transitionTo(ClaimStatus target) {
+        if (target == ClaimStatus.APPROVED) {
+            throw new DomainException("Claims must be approved via approve() so coverage rules are checked");
+        }
         assertCanTransitionTo(target);
         status = target;
+    }
+
+    /**
+     * Approves the claim after checking the coverage rules of the underlying policy.
+     *
+     * <p>The policy data is supplied by the caller because it belongs to the policy module;
+     * the rules themselves are enforced here so every approval path applies them.</p>
+     *
+     * @param coverageLimit maximum amount covered by the policy
+     * @param coveredOnLossDate whether the policy was active on {@link #getOccurredOn()}
+     * @throws DomainException if the claim is not in review, the policy did not cover the loss
+     *                         date, or the amount exceeds the coverage limit
+     */
+    public void approve(BigDecimal coverageLimit, boolean coveredOnLossDate) {
+        Objects.requireNonNull(coverageLimit, "coverageLimit must not be null");
+        assertCanTransitionTo(ClaimStatus.APPROVED);
+        if (!coveredOnLossDate) {
+            throw new DomainException("Policy did not provide coverage on the date of loss");
+        }
+        if (amount.compareTo(coverageLimit) > 0) {
+            throw new DomainException("Claim amount exceeds the policy coverage limit");
+        }
+        status = ClaimStatus.APPROVED;
     }
 }

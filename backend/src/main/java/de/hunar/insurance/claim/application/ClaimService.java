@@ -13,6 +13,8 @@ import de.hunar.insurance.policy.PolicyApi;
 import de.hunar.insurance.policy.PolicySnapshot;
 import de.hunar.insurance.shared.domain.DomainException;
 import de.hunar.insurance.shared.domain.Money;
+import de.hunar.insurance.shared.security.CustomerAccessPolicy;
+import org.springframework.security.access.AccessDeniedException;
 import de.hunar.insurance.shared.web.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,7 @@ public class ClaimService {
     private final ClaimMapper claimMapper;
     private final Clock clock;
     private final AuditTrailApi auditTrail;
+    private final CustomerAccessPolicy customerAccess;
 
     /**
      * Returns a page of claims enriched with the corresponding policy snapshots.
@@ -108,6 +111,7 @@ public class ClaimService {
      * @return response containing the newly persisted claim
      * @throws DomainException if the request violates claim or policy business rules
      * @throws ResourceNotFoundException if the referenced policy cannot be found
+     * @throws AccessDeniedException if a customer reports a claim for another customer's policy
      */
     public ClaimResponse createClaimResponse(CreateClaimRequest request) {
         if (request == null || request.policyId() == null) {
@@ -120,6 +124,10 @@ public class ClaimService {
             throw new DomainException("Claim amount must be greater than zero");
         }
         PolicySnapshot policy = policyApi.getSnapshot(request.policyId());
+        // Object-level authorization: a customer may only report claims for their own policies.
+        if (!customerAccess.canActFor(policy.customerNumber())) {
+            throw new AccessDeniedException("Customers may only report claims for their own policies");
+        }
         if (!policy.customerNumber().equals(request.customerNumber())) {
             throw new DomainException("Customer does not match the supplied policy");
         }
@@ -145,23 +153,21 @@ public class ClaimService {
      * @param newStatus requested status
      * @return the updated persisted claim
      * @throws ResourceNotFoundException if the claim or its policy cannot be found
-     * @throws DomainException if approval violates policy coverage rules
-     * @throws IllegalStateException if the requested status transition is not allowed
+     * @throws DomainException if the transition is not allowed or approval violates coverage rules
      */
     public Claim updateClaim(Long id, ClaimStatus newStatus) {
         Claim claim = getClaimById(id);
         ClaimStatus previousStatus = claim.getStatus();
+        // Fail fast on invalid transitions before querying the policy module.
         claim.assertCanTransitionTo(newStatus);
         if (newStatus == ClaimStatus.APPROVED) {
+            // The policy module supplies the facts; the Claim aggregate enforces the rules.
             PolicySnapshot policy = policyApi.getSnapshot(claim.getPolicyId());
-            if (!policyApi.isActiveAt(claim.getPolicyId(), claim.getOccurredOn())) {
-                throw new DomainException("Policy did not provide coverage on the date of loss");
-            }
-            if (claim.getAmount().compareTo(policy.coverageLimit().amount()) > 0) {
-                throw new DomainException("Claim amount exceeds the policy coverage limit");
-            }
+            claim.approve(policy.coverageLimit().amount(),
+                    policyApi.isActiveAt(claim.getPolicyId(), claim.getOccurredOn()));
+        } else {
+            claim.transitionTo(newStatus);
         }
-        claim.transitionTo(newStatus);
         Claim saved = claimRepository.save(claim);
         auditTrail.record("STATUS_CHANGED", "CLAIM", saved.getId().toString(),
                 "from=" + previousStatus + ",to=" + newStatus, auditTrail.captureContext());
@@ -186,26 +192,10 @@ public class ClaimService {
      * @return the updated claim response
      * @throws ResourceNotFoundException if the claim or its policy cannot be found
      * @throws DomainException if a business rule rejects the update
-     * @throws IllegalStateException if the requested status transition is not allowed
      */
     public ClaimResponse updateClaimResponse(Long id, ClaimStatus newStatus) {
         Claim claim = updateClaim(id, newStatus);
         return claimMapper.toResponse(claim, policyApi.getSnapshot(claim.getPolicyId()));
-    }
-
-    /**
-     * Deletes an existing claim and records the deletion in the audit trail.
-     *
-     * @param id identifier of the claim to delete
-     * @throws ResourceNotFoundException if no claim has the given identifier
-     */
-    public void deleteClaim(Long id) {
-        if (!claimRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Claim", id);
-        }
-        claimRepository.deleteById(id);
-        auditTrail.record("DELETED", "CLAIM", id.toString(), "claim deleted", auditTrail.captureContext());
-        log.info("Claim deleted: claimId={}", id);
     }
 
     private PolicySnapshot requirePolicy(Map<Long, PolicySnapshot> policies, Long policyId) {

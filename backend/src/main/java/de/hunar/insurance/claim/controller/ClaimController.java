@@ -24,7 +24,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Exposes public claim operations; deletion is disabled by the security filter chain.
+ * Exposes claim operations. Claims are never deleted: they are closed by rejecting them, which
+ * keeps the audit history intact. DELETE requests are additionally blocked by the security
+ * filter chain.
  */
 @RestController
 @RequestMapping("/api/claims")
@@ -122,24 +124,5 @@ public class ClaimController {
             @RequestParam ClaimStatus newStatus
     ) {
         return claimService.updateClaimResponse(id, newStatus);
-    }
-
-    /**
-     * Deletes a claim and records the deletion in the audit trail.
-     *
-     * @param id claim identifier
-     */
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Claim löschen")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Claim erfolgreich gelöscht"),
-            @ApiResponse(responseCode = "404", description = "Claim nicht gefunden")
-    })
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteClaim(
-            @Parameter(description = "ID des Claims", example = "1")
-            @PathVariable Long id
-    ) {
-        claimService.deleteClaim(id);
     }
 }
