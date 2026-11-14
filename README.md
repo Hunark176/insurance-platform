@@ -235,5 +235,5 @@ backend/    Spring-Boot-Anwendung, Tests und Flyway-Migrationen
 frontend/   React-/TypeScript-Anwendung (Caddy-Image: frontend/Dockerfile)
 docs/       Architektur, API, ADRs, Diagramme, Betrieb
 ops/        Skripte für den Server (Demodaten-Reset)
-.github/    CI/CD-Workflows und Copilot-Anweisungen
+.github/    CI/CD-Workflows
 ```
