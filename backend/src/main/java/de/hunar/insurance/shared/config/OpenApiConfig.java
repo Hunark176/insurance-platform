@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
+import io.swagger.v3.oas.annotations.servers.Server;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +18,10 @@ import java.util.stream.Collectors;
         title = "Insurance Platform API",
         version = "v1",
         description = "Modular monolith insurance domain API"
-))
+),
+        // Relative URL: behind the TLS-terminating proxy the app only sees http, so a generated
+        // absolute URL would make Swagger UI call http:// from an https:// page (mixed content).
+        servers = @Server(url = "/"))
 @SecurityScheme(name = OpenApiSecurity.SCHEME, type = SecuritySchemeType.HTTP, scheme = "basic")
 public class OpenApiConfig {
 

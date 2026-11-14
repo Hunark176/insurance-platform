@@ -6,8 +6,7 @@
     "version" : "v1"
   },
   "servers" : [ {
-    "url" : "http://localhost",
-    "description" : "Generated server url"
+    "url" : "/"
   } ],
   "tags" : [ {
     "description" : "Schadenfälle verwalten",
