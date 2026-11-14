@@ -17,5 +17,6 @@ COPY Caddyfile /etc/caddy/Caddyfile
 
 EXPOSE 80
 
+# Admin API (localhost only, no TLS): the site itself redirects http -> https for {$DOMAIN}.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:2019/config/ || exit 1
